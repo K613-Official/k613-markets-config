@@ -7,7 +7,6 @@ import {CollateralConfigPayload} from "../src/payloads/CollateralConfigPayload.s
 /// @title ConfigureCollateral
 /// @notice Script to execute CollateralConfigPayload
 /// @dev Configures collateral parameters (LTV, LT, LB) and enables borrowing
-/// @dev Must be executed after ListingPayload
 contract ConfigureCollateral is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");

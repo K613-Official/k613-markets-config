@@ -8,8 +8,6 @@ import {TokensConfig} from "../src/config/TokensConfig.sol";
 
 /// @title ConfigureRisk
 /// @notice Script for final risk parameter configuration
-/// @dev Executes RiskUpdatePayload.execute() which sets borrow/supply caps and reserve factors
-/// @dev Must be executed after ListingPayload and CollateralConfigPayload
 contract ConfigureRisk is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");

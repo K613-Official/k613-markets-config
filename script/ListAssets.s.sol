@@ -5,10 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {ListingPayload} from "../src/payloads/ListingPayload.sol";
 
 /// @title ListAssets
-/// @notice Script to execute ListingPayload (initReserves ONLY)
-/// @dev Executes ListingPayload.execute() which initializes reserves
-/// @dev Token implementation addresses should be set in ArbitrumSepoliaAddresses.sol
-/// @dev After this, execute CollateralConfigPayload and RiskUpdatePayload
+/// @notice Script to execute ListingPayload
 contract ListAssets is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -19,7 +16,7 @@ contract ListAssets is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy ListingPayload (stateless, execute-only payload)
+        // Deploy ListingPayload
         ListingPayload listingPayload = new ListingPayload();
         console.log("ListingPayload deployed at:", address(listingPayload));
 

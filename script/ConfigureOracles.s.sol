@@ -8,7 +8,6 @@ import {ArbitrumSepoliaAddresses} from "../src/config/ArbitrumSepoliaAddresses.s
 
 /// @title ConfigureOracles
 /// @notice Script to configure Chainlink price feeds via AaveOracle
-/// @dev Executes OracleUpdatePayload and verifies getAssetPrice != 0
 contract ConfigureOracles is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
