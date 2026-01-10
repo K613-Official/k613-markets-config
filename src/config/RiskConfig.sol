@@ -4,111 +4,122 @@ pragma solidity ^0.8.30;
 import {TokensConfig} from "./TokensConfig.sol";
 
 /// @title RiskConfig
-/// @notice Configuration for risk parameters of listed assets
-/// @dev Sets up borrow caps, supply caps, liquidation bonus, reserve factor, and isolation mode
-contract RiskConfig {
-    TokensConfig public immutable tokensConfig;
+/// @notice Risk parameters configuration for assets
+library RiskConfig {
+    // Basis points constants
+    uint256 internal constant BASIS_POINTS = 1e4;
 
-    /// @notice Risk parameters structure
+    // Default LTV values
+    uint256 internal constant DEFAULT_LTV = 7500; // 75%
+    uint256 internal constant WETH_LTV = 8000; // 80%
+    uint256 internal constant WBTC_LTV = 7000; // 70%
+    uint256 internal constant STABLECOIN_LTV = 8000; // 80%
+
+    // Default liquidation threshold values
+    uint256 internal constant DEFAULT_LIQUIDATION_THRESHOLD = 8000; // 80%
+    uint256 internal constant WETH_LIQUIDATION_THRESHOLD = 8250; // 82.5%
+    uint256 internal constant WBTC_LIQUIDATION_THRESHOLD = 7500; // 75%
+    uint256 internal constant STABLECOIN_LIQUIDATION_THRESHOLD = 8500; // 85%
+
+    // Liquidation bonus
+    uint256 internal constant LIQUIDATION_BONUS = 10500; // 5% bonus
+
+    // Reserve factor
+    uint256 internal constant BLUE_CHIP_RESERVE_FACTOR = 2500; // 25% for blue-chip assets
+    uint256 internal constant RISK_ASSET_RESERVE_FACTOR = 5000; // 50% for risk assets
+
+    // Default caps
+    uint256 internal constant DEFAULT_BORROW_CAP_MULTIPLIER = 1e6;
+    uint256 internal constant DEFAULT_SUPPLY_CAP_MULTIPLIER = 2e6;
+
+    // WBTC specific caps
+    uint256 internal constant WBTC_BORROW_CAP_MULTIPLIER = 1e2;
+    uint256 internal constant WBTC_SUPPLY_CAP_MULTIPLIER = 2e2;
+
+    // WETH asset address
+    address internal constant WETH_ASSET = 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73;
+
     struct RiskParams {
         address asset;
-        uint256 borrowCap; // Maximum borrow amount
-        uint256 supplyCap; // Maximum supply amount
-        uint256 liquidationBonus; // Liquidation bonus in basis points (e.g., 500 = 5%)
-        uint256 reserveFactor; // Reserve factor in basis points (e.g., 1000 = 10%)
-        bool isolationMode; // Whether asset is in isolation mode
+        uint256 ltv;
+        uint256 liquidationThreshold;
+        uint256 liquidationBonus;
+        uint256 reserveFactor;
+        uint256 borrowCap;
+        uint256 supplyCap;
     }
 
-    /// @notice Default risk parameters
-    /// @dev These are typical values for testnet, adjust as needed
-    RiskParams[] public riskParams;
-
-    constructor() {
-        tokensConfig = new TokensConfig();
-
-        // Initialize default risk parameters for all tokens
-        _initializeDefaultRiskParams();
+    /// @notice Gets risk parameters for WETH
+    function weth() internal pure returns (RiskParams memory) {
+        return RiskParams({
+            asset: WETH_ASSET,
+            ltv: WETH_LTV,
+            liquidationThreshold: WETH_LIQUIDATION_THRESHOLD,
+            liquidationBonus: LIQUIDATION_BONUS,
+            reserveFactor: BLUE_CHIP_RESERVE_FACTOR,
+            borrowCap: DEFAULT_BORROW_CAP_MULTIPLIER * 1e18,
+            supplyCap: DEFAULT_SUPPLY_CAP_MULTIPLIER * 1e18
+        });
     }
 
-    /// @notice Initializes default risk parameters
-    /// @dev Sets conservative values for testnet
-    function _initializeDefaultRiskParams() internal {
-        TokensConfig.TokenConfig[] memory tokens = tokensConfig.getAllTokens();
+    /// @notice Computes keccak256 hash of a string using inline assembly for efficiency
+    function _hashString(string memory str) private pure returns (bytes32 hash) {
+        assembly {
+            hash := keccak256(add(str, 0x20), mload(str))
+        }
+    }
 
-        for (uint256 i = 0; i < tokens.length; i++) {
+    /// @notice Gets all risk parameters for configured tokens
+    function getRiskParams() internal pure returns (RiskParams[] memory) {
+        TokensConfig.Token[] memory tokens = TokensConfig.getTokens();
+        RiskParams[] memory params = new RiskParams[](tokens.length);
+
+        // Pre-compute symbol hashes for efficiency
+        bytes32 wethHash = _hashString("WETH");
+        bytes32 wbtcHash = _hashString("WBTC");
+        bytes32 usdcHash = _hashString("USDC");
+        bytes32 usdtHash = _hashString("USDT");
+        bytes32 daiHash = _hashString("DAI");
+
+        for (uint256 i; i < tokens.length; i++) {
+            bytes32 symbolHash = _hashString(tokens[i].symbol);
             address asset = tokens[i].asset;
+            uint8 decimals = tokens[i].decimals;
 
-            // Default parameters (adjust based on token type)
-            uint256 borrowCap = 1000000 * 10 ** tokens[i].decimals; // 1M tokens
-            uint256 supplyCap = 2000000 * 10 ** tokens[i].decimals; // 2M tokens
-            uint256 liquidationBonus = 500; // 5%
-            uint256 reserveFactor = 1000; // 10%
-            bool isolationMode = false;
+            // Default parameters
+            uint256 ltv = DEFAULT_LTV;
+            uint256 liquidationThreshold = DEFAULT_LIQUIDATION_THRESHOLD;
+            uint256 liquidationBonus = LIQUIDATION_BONUS;
+            uint256 reserveFactor = BLUE_CHIP_RESERVE_FACTOR;
+            uint256 borrowCap = DEFAULT_BORROW_CAP_MULTIPLIER * 10 ** decimals;
+            uint256 supplyCap = DEFAULT_SUPPLY_CAP_MULTIPLIER * 10 ** decimals;
 
-            // Special cases
-            if (keccak256(bytes(tokens[i].symbol)) == keccak256(bytes("WBTC"))) {
-                // WBTC typically has lower caps
-                borrowCap = 100 * 10 ** tokens[i].decimals;
-                supplyCap = 200 * 10 ** tokens[i].decimals;
+            // Adjust parameters based on token type
+            if (symbolHash == wethHash) {
+                ltv = WETH_LTV;
+                liquidationThreshold = WETH_LIQUIDATION_THRESHOLD;
+            } else if (symbolHash == wbtcHash) {
+                ltv = WBTC_LTV;
+                liquidationThreshold = WBTC_LIQUIDATION_THRESHOLD;
+                borrowCap = WBTC_BORROW_CAP_MULTIPLIER * 10 ** decimals;
+                supplyCap = WBTC_SUPPLY_CAP_MULTIPLIER * 10 ** decimals;
+            } else if (symbolHash == usdcHash || symbolHash == usdtHash || symbolHash == daiHash) {
+                // Stablecoins (blue-chip)
+                ltv = STABLECOIN_LTV;
+                liquidationThreshold = STABLECOIN_LIQUIDATION_THRESHOLD;
             }
 
-            riskParams.push(
-                RiskParams({
-                    asset: asset,
-                    borrowCap: borrowCap,
-                    supplyCap: supplyCap,
-                    liquidationBonus: liquidationBonus,
-                    reserveFactor: reserveFactor,
-                    isolationMode: isolationMode
-                })
-            );
+            params[i] = RiskParams({
+                asset: asset,
+                ltv: ltv,
+                liquidationThreshold: liquidationThreshold,
+                liquidationBonus: liquidationBonus,
+                reserveFactor: reserveFactor,
+                borrowCap: borrowCap,
+                supplyCap: supplyCap
+            });
         }
-    }
 
-    /// @notice Gets risk parameters for an asset
-    /// @param asset Token address
-    /// @return RiskParams struct
-    function getRiskParams(address asset) external view returns (RiskParams memory) {
-        for (uint256 i = 0; i < riskParams.length; i++) {
-            if (riskParams[i].asset == asset) {
-                return riskParams[i];
-            }
-        }
-        revert("Risk params not found");
-    }
-
-    /// @notice Gets all risk parameters
-    /// @return Array of RiskParams structs
-    function getAllRiskParams() external view returns (RiskParams[] memory) {
-        return riskParams;
-    }
-
-    /// @notice Updates risk parameters for an asset
-    /// @param asset Token address
-    /// @param borrowCap New borrow cap
-    /// @param supplyCap New supply cap
-    /// @param liquidationBonus New liquidation bonus (basis points)
-    /// @param reserveFactor New reserve factor (basis points)
-    /// @param isolationMode New isolation mode flag
-    function updateRiskParams(
-        address asset,
-        uint256 borrowCap,
-        uint256 supplyCap,
-        uint256 liquidationBonus,
-        uint256 reserveFactor,
-        bool isolationMode
-    ) external {
-        for (uint256 i = 0; i < riskParams.length; i++) {
-            if (riskParams[i].asset == asset) {
-                riskParams[i].borrowCap = borrowCap;
-                riskParams[i].supplyCap = supplyCap;
-                riskParams[i].liquidationBonus = liquidationBonus;
-                riskParams[i].reserveFactor = reserveFactor;
-                riskParams[i].isolationMode = isolationMode;
-                return;
-            }
-        }
-        revert("Asset not found");
+        return params;
     }
 }
-
