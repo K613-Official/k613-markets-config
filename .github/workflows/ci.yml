@@ -51,7 +51,7 @@ jobs:
         run: forge test --gas-report
 
       - name: Generate coverage
-        run: forge coverage --report lcov
+        run: forge coverage --ir-minimum --report lcov
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -135,6 +135,11 @@ jobs:
       - name: Run Slither
         run: |
           slither . --print human-summary --print markdown --print slither-report.md
+        continue-on-error: true
+
+      - name: Display Slither Summary
+        run: |
+          slither . --print human-summary
         continue-on-error: true
 
       - name: Upload Slither report

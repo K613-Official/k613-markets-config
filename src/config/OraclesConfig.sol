@@ -9,8 +9,10 @@ import {IAaveOracle} from "../interfaces/IAaveExternal.sol";
 /// @dev Provides functions to configure price feeds via AaveOracle
 library OraclesConfig {
     /// @notice Configures oracle price feeds for all tokens
-    function configureOracles(address oracle) internal {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens();
+    /// @param oracle Address of the AaveOracle contract
+    /// @param network The network to configure oracles for
+    function configureOracles(address oracle, TokensConfig.Network network) internal {
+        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(network);
 
         address[] memory assets = new address[](tokens.length);
         address[] memory sources = new address[](tokens.length);
@@ -25,10 +27,15 @@ library OraclesConfig {
 
     /// @notice Verifies that all oracle prices are set (non-zero)
     /// @param oracle Address of the AaveOracle contract
+    /// @param network The network to verify oracles for
     /// @return success True if all prices are valid
     /// @return invalidAssets Array of assets with invalid prices
-    function verifyOracles(address oracle) internal view returns (bool success, address[] memory invalidAssets) {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens();
+    function verifyOracles(address oracle, TokensConfig.Network network)
+        internal
+        view
+        returns (bool success, address[] memory invalidAssets)
+    {
+        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(network);
         address[] memory invalid = new address[](tokens.length);
         uint256 invalidCount;
 
