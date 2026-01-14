@@ -23,8 +23,10 @@ contract ConfigureRisk is Script {
         console.log("RiskUpdatePayload deployed at:", address(riskUpdatePayload));
 
         // Get tokens to display what will be configured
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens();
-        RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams();
+        // Note: Using ArbitrumSepolia as default - change NETWORK constant in RiskUpdatePayload to switch
+        TokensConfig.Network network = TokensConfig.Network.ArbitrumSepolia;
+        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(network);
+        RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(network);
 
         console.log("Updating risk parameters for", tokens.length, "tokens...");
 

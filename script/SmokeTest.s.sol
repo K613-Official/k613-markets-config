@@ -4,14 +4,17 @@ pragma solidity ^0.8.30;
 import {Script, console} from "forge-std/Script.sol";
 import {IPool} from "../src/interfaces/IAaveExternal.sol";
 import {IERC20} from "../src/interfaces/IAaveExternal.sol";
-import {ArbitrumSepoliaAddresses} from "../src/config/ArbitrumSepoliaAddresses.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
+import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 
 /// @title SmokeTest
 /// @notice Script to perform smoke tests: deposit, borrow, repay, withdraw
 /// @dev Critical for demonstration - tests basic Aave v3 functionality
 contract SmokeTest is Script {
     IPool public pool;
+
+    // Change this constant to switch networks
+    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.ArbitrumSepolia;
 
     // Test amounts (adjust based on token decimals)
     uint256 constant TEST_DEPOSIT_AMOUNT = 1000 * 10 ** 18; // 1000 tokens (for 18 decimals)
@@ -24,12 +27,12 @@ contract SmokeTest is Script {
         console.log("Deployer address:", deployer);
         console.log("Running smoke tests...");
 
-        pool = IPool(ArbitrumSepoliaAddresses.POOL);
+        pool = IPool(_getPool());
 
         vm.startBroadcast(deployerPrivateKey);
 
         // Test with WETH (first token)
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens();
+        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
         require(tokens.length > 0, "No tokens configured");
 
         address testAsset = tokens[0].asset; // Use first token (WETH)
@@ -121,6 +124,14 @@ contract SmokeTest is Script {
         uint256 withdrawn = pool.withdraw(asset, amount, user);
         console.log("Withdrew", withdrawn, "tokens");
         console.log("Withdraw successful!");
+    }
+
+    function _getPool() private pure returns (address) {
+        if (NETWORK == TokensConfig.Network.ArbitrumSepolia) {
+            return ArbitrumSepolia.POOL;
+        } else {
+            revert("Unsupported network");
+        }
     }
 }
 

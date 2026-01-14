@@ -13,14 +13,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-
-      - name: Install dependencies
-        run: forge install --no-git
 
       - name: Build contracts
         run: forge build --via-ir 
@@ -38,20 +37,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
 
-      - name: Install dependencies
-        run: forge install --no-git
-
       - name: Run tests
         run: forge test --gas-report
 
       - name: Generate coverage
-        run: forge coverage --report lcov
+        run: forge coverage --ir-minimum --report lcov
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -65,6 +63,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -80,14 +80,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-
-      - name: Install dependencies
-        run: forge install --no-git
 
       - name: Build contracts
         run: forge build --via-ir 
@@ -116,14 +115,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-
-      - name: Install dependencies
-        run: forge install --no-git
 
       - name: Build contracts
         run: forge build --via-ir   
@@ -135,6 +133,11 @@ jobs:
       - name: Run Slither
         run: |
           slither . --print human-summary --print markdown --print slither-report.md
+        continue-on-error: true
+
+      - name: Display Slither Summary
+        run: |
+          slither . --print human-summary
         continue-on-error: true
 
       - name: Upload Slither report
