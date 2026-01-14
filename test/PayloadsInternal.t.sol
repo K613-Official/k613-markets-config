@@ -36,7 +36,7 @@ contract PayloadsInternalTest is Test {
 
         // Verify data consistency
         assertEq(tokens.length, riskParams.length, "Tokens and risk params should match");
-        
+
         for (uint256 i = 0; i < tokens.length; i++) {
             assertEq(tokens[i].asset, riskParams[i].asset, "Assets should match");
             assertLe(riskParams[i].ltv, riskParams[i].liquidationThreshold, "LTV should be <= liquidation threshold");
@@ -50,7 +50,7 @@ contract PayloadsInternalTest is Test {
 
         // Verify oracle and price feeds
         assertNotEq(addrs.oracle, address(0), "Oracle should be set");
-        
+
         for (uint256 i = 0; i < tokens.length; i++) {
             assertNotEq(tokens[i].priceFeed, address(0), "Price feed should be set");
             assertNotEq(tokens[i].asset, address(0), "Asset should be set");
@@ -63,7 +63,7 @@ contract PayloadsInternalTest is Test {
 
         // Verify risk params for updates
         assertGt(riskParams.length, 0, "Should have risk params");
-        
+
         for (uint256 i = 0; i < riskParams.length; i++) {
             assertNotEq(riskParams[i].asset, address(0), "Asset should not be zero");
             assertGt(riskParams[i].borrowCap, 0, "Borrow cap should be > 0");
@@ -75,7 +75,7 @@ contract PayloadsInternalTest is Test {
     function test_AllPayloadsUseSameNetwork() public view {
         // Verify all payloads use ArbitrumSepolia by default
         NetworkConfig.Addresses memory arbitrumAddrs = ArbitrumSepolia.getAddresses();
-        
+
         // All payloads should be able to access ArbitrumSepolia addresses
         assertNotEq(arbitrumAddrs.pool, address(0), "Pool should be set");
         assertNotEq(arbitrumAddrs.oracle, address(0), "Oracle should be set");
@@ -87,7 +87,7 @@ contract PayloadsInternalTest is Test {
 
         // Verify stable debt is properly disabled
         assertEq(addrs.stableDebtImpl, address(0), "Stable debt impl should be zero");
-        
+
         // Verify that for each token, stable debt would be disabled
         for (uint256 i = 0; i < tokens.length; i++) {
             // In ListingPayload, setReserveStableRateBorrowing(tokens[i].asset, false) would be called
@@ -99,10 +99,10 @@ contract PayloadsInternalTest is Test {
         // Test that payloads can work with both networks
         TokensConfig.Token[] memory arbitrumTokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
         TokensConfig.Token[] memory monadTokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
-        
+
         // Both should return same number of tokens
         assertEq(arbitrumTokens.length, monadTokens.length, "Both networks should have same token count");
-        
+
         // Symbols should match
         for (uint256 i = 0; i < arbitrumTokens.length; i++) {
             assertEq(

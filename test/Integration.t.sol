@@ -55,7 +55,7 @@ contract IntegrationTest is Test {
     function test_PoolConfiguratorRetrieval() public view {
         NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
         address configurator = NetworkConfig.getPoolConfigurator(addrs);
-        
+
         assertNotEq(configurator, address(0), "Configurator should not be zero");
         assertEq(configurator, ArbitrumSepolia.POOL_CONFIGURATOR, "Should return constant value");
     }
@@ -79,13 +79,13 @@ contract IntegrationTest is Test {
         for (uint256 i = 0; i < params.length; i++) {
             // LTV should be between 0 and 100%
             assertLe(params[i].ltv, RiskConfig.BASIS_POINTS, "LTV should not exceed 100%");
-            
+
             // Liquidation threshold should be >= LTV
             assertGe(params[i].liquidationThreshold, params[i].ltv, "LT should be >= LTV");
-            
+
             // Liquidation bonus should be > 100% (for Aave v3)
             assertGt(params[i].liquidationBonus, RiskConfig.BASIS_POINTS, "LB should be > 100%");
-            
+
             // Reserve factor should be between 0 and 100%
             assertLe(params[i].reserveFactor, RiskConfig.BASIS_POINTS, "RF should not exceed 100%");
         }

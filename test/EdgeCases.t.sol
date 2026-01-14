@@ -46,10 +46,8 @@ contract EdgeCasesTest is Test {
         // Configure oracles but don't set prices
         OraclesConfig.configureOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
 
-        (bool success, address[] memory invalidAssets) = OraclesConfig.verifyOracles(
-            address(oracle),
-            TokensConfig.Network.ArbitrumSepolia
-        );
+        (bool success, address[] memory invalidAssets) =
+            OraclesConfig.verifyOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
 
         assertFalse(success, "Should fail when prices are zero");
         assertEq(invalidAssets.length, 5, "All assets should be invalid");
@@ -57,17 +55,15 @@ contract EdgeCasesTest is Test {
 
     function test_PartialOracleVerification() public {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
-        
+
         OraclesConfig.configureOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
-        
+
         // Set prices for only first 2 tokens
         oracle.setPrice(tokens[0].asset, 1000 * 1e8);
         oracle.setPrice(tokens[1].asset, 2000 * 1e8);
 
-        (bool success, address[] memory invalidAssets) = OraclesConfig.verifyOracles(
-            address(oracle),
-            TokensConfig.Network.ArbitrumSepolia
-        );
+        (bool success, address[] memory invalidAssets) =
+            OraclesConfig.verifyOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
 
         assertFalse(success, "Should fail when some prices are zero");
         assertEq(invalidAssets.length, 3, "Should have 3 invalid assets");
@@ -118,8 +114,11 @@ contract EdgeCasesTest is Test {
             // Safety check: liquidation threshold should be greater than LTV (already tested elsewhere)
             // This test just verifies the difference is reasonable (at least 2.5%)
             uint256 minLiquidationThreshold = params[i].ltv + (RiskConfig.BASIS_POINTS / 40); // 2.5%
-            assertGe(params[i].liquidationThreshold, minLiquidationThreshold, 
-                "Liquidation threshold should provide reasonable safety margin");
+            assertGe(
+                params[i].liquidationThreshold,
+                minLiquidationThreshold,
+                "Liquidation threshold should provide reasonable safety margin"
+            );
         }
     }
 

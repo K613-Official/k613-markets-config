@@ -21,7 +21,7 @@ contract TokensConfigExtendedTest is Test {
 
     function test_ArbitrumSepoliaTokensHaveCorrectStructure() public {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
-        
+
         // Verify all tokens have correct structure
         for (uint256 i = 0; i < tokens.length; i++) {
             assertNotEq(tokens[i].asset, address(0), "Asset should not be zero");
@@ -33,10 +33,10 @@ contract TokensConfigExtendedTest is Test {
 
     function test_MonadMainnetTokensHavePlaceholderStructure() public {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
-        
+
         // Verify all tokens have placeholder structure (5 tokens with zero addresses)
         assertEq(tokens.length, 5, "MonadMainnet should return 5 placeholder tokens");
-        
+
         for (uint256 i = 0; i < tokens.length; i++) {
             assertEq(tokens[i].asset, address(0), "Asset should be placeholder");
             assertEq(tokens[i].priceFeed, address(0), "Price feed should be placeholder");
@@ -47,9 +47,9 @@ contract TokensConfigExtendedTest is Test {
 
     function test_TokenSymbolsMatchExpected() public {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
-        
+
         string[5] memory expectedSymbols = ["WETH", "USDC", "USDT", "DAI", "WBTC"];
-        
+
         for (uint256 i = 0; i < tokens.length; i++) {
             assertEq(
                 keccak256(bytes(tokens[i].symbol)),
@@ -61,9 +61,9 @@ contract TokensConfigExtendedTest is Test {
 
     function test_TokenDecimalsMatchExpected() public {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
-        
+
         uint8[5] memory expectedDecimals = [18, 6, 6, 18, 8];
-        
+
         for (uint256 i = 0; i < tokens.length; i++) {
             assertEq(
                 tokens[i].decimals,
@@ -76,20 +76,16 @@ contract TokensConfigExtendedTest is Test {
     function test_BothNetworksReturnSameSymbols() public {
         TokensConfig.Token[] memory arbitrumTokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
         TokensConfig.Token[] memory monadTokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
-        
+
         assertEq(arbitrumTokens.length, monadTokens.length, "Both networks should have same token count");
-        
+
         for (uint256 i = 0; i < arbitrumTokens.length; i++) {
             assertEq(
                 keccak256(bytes(arbitrumTokens[i].symbol)),
                 keccak256(bytes(monadTokens[i].symbol)),
                 "Symbols should match between networks"
             );
-            assertEq(
-                arbitrumTokens[i].decimals,
-                monadTokens[i].decimals,
-                "Decimals should match between networks"
-            );
+            assertEq(arbitrumTokens[i].decimals, monadTokens[i].decimals, "Decimals should match between networks");
         }
     }
 }

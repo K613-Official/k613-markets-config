@@ -158,7 +158,11 @@ contract PayloadsExecutionTest is Test {
             // Verify naming format
             assertGt(bytes(aTokenName).length, bytes(tokens[i].symbol).length, "AToken name should include prefix");
             assertGt(bytes(aTokenSymbol).length, 0, "AToken symbol should not be empty");
-            assertGt(bytes(variableDebtTokenName).length, bytes(tokens[i].symbol).length, "Variable debt name should include prefix");
+            assertGt(
+                bytes(variableDebtTokenName).length,
+                bytes(tokens[i].symbol).length,
+                "Variable debt name should include prefix"
+            );
             assertGt(bytes(variableDebtTokenSymbol).length, 0, "Variable debt symbol should not be empty");
         }
     }

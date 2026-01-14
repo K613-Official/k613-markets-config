@@ -55,7 +55,7 @@ contract NetworkConfigExtendedTest is Test {
 
     function test_MonadMainnetGetAddresses() public view {
         NetworkConfig.Addresses memory addrs = MonadMainnet.getAddresses();
-        
+
         // All should be placeholders
         assertEq(addrs.poolAddressesProvider, address(0), "Should be placeholder");
         assertEq(addrs.pool, address(0), "Should be placeholder");
@@ -71,7 +71,7 @@ contract NetworkConfigExtendedTest is Test {
 
     function test_NetworkConfigAddressesStructure() public view {
         NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
-        
+
         // Verify all fields are accessible
         assertNotEq(addrs.poolAddressesProvider, address(0), "PoolAddressesProvider should be set");
         assertNotEq(addrs.pool, address(0), "Pool should be set");

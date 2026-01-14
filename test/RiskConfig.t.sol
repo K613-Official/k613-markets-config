@@ -19,7 +19,9 @@ contract RiskConfigTest is Test {
             assertGt(params[i].ltv, 0, "LTV should be greater than 0");
             assertLe(params[i].ltv, RiskConfig.BASIS_POINTS, "LTV should not exceed 100%");
             assertGt(params[i].liquidationThreshold, params[i].ltv, "Liquidation threshold should be greater than LTV");
-            assertGt(params[i].liquidationBonus, RiskConfig.BASIS_POINTS, "Liquidation bonus should be greater than 100%");
+            assertGt(
+                params[i].liquidationBonus, RiskConfig.BASIS_POINTS, "Liquidation bonus should be greater than 100%"
+            );
             assertGt(params[i].reserveFactor, 0, "Reserve factor should be greater than 0");
             assertLe(params[i].reserveFactor, RiskConfig.BASIS_POINTS, "Reserve factor should not exceed 100%");
             assertGt(params[i].borrowCap, 0, "Borrow cap should be greater than 0");
@@ -41,9 +43,17 @@ contract RiskConfigTest is Test {
         }
 
         assertEq(params[wethIndex].ltv, RiskConfig.WETH_LTV, "WETH LTV should match");
-        assertEq(params[wethIndex].liquidationThreshold, RiskConfig.WETH_LIQUIDATION_THRESHOLD, "WETH liquidation threshold should match");
-        assertEq(params[wethIndex].liquidationBonus, RiskConfig.LIQUIDATION_BONUS, "WETH liquidation bonus should match");
-        assertEq(params[wethIndex].reserveFactor, RiskConfig.BLUE_CHIP_RESERVE_FACTOR, "WETH reserve factor should match");
+        assertEq(
+            params[wethIndex].liquidationThreshold,
+            RiskConfig.WETH_LIQUIDATION_THRESHOLD,
+            "WETH liquidation threshold should match"
+        );
+        assertEq(
+            params[wethIndex].liquidationBonus, RiskConfig.LIQUIDATION_BONUS, "WETH liquidation bonus should match"
+        );
+        assertEq(
+            params[wethIndex].reserveFactor, RiskConfig.BLUE_CHIP_RESERVE_FACTOR, "WETH reserve factor should match"
+        );
     }
 
     function test_WBTCHasCorrectRiskParams() public {
@@ -60,8 +70,12 @@ contract RiskConfigTest is Test {
         }
 
         assertEq(params[wbtcIndex].ltv, RiskConfig.WBTC_LTV, "WBTC LTV should match");
-        assertEq(params[wbtcIndex].liquidationThreshold, RiskConfig.WBTC_LIQUIDATION_THRESHOLD, "WBTC liquidation threshold should match");
-        
+        assertEq(
+            params[wbtcIndex].liquidationThreshold,
+            RiskConfig.WBTC_LIQUIDATION_THRESHOLD,
+            "WBTC liquidation threshold should match"
+        );
+
         // WBTC should have lower caps
         uint256 expectedBorrowCap = RiskConfig.WBTC_BORROW_CAP_MULTIPLIER * (10 ** tokens[wbtcIndex].decimals);
         uint256 expectedSupplyCap = RiskConfig.WBTC_SUPPLY_CAP_MULTIPLIER * (10 ** tokens[wbtcIndex].decimals);
@@ -78,9 +92,16 @@ contract RiskConfigTest is Test {
         for (uint256 s = 0; s < stablecoins.length; s++) {
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (keccak256(bytes(tokens[i].symbol)) == keccak256(bytes(stablecoins[s]))) {
-                    assertEq(params[i].ltv, RiskConfig.STABLECOIN_LTV, string.concat("Stablecoin LTV should match for ", stablecoins[s]));
-                    assertEq(params[i].liquidationThreshold, RiskConfig.STABLECOIN_LIQUIDATION_THRESHOLD, 
-                        string.concat("Stablecoin liquidation threshold should match for ", stablecoins[s]));
+                    assertEq(
+                        params[i].ltv,
+                        RiskConfig.STABLECOIN_LTV,
+                        string.concat("Stablecoin LTV should match for ", stablecoins[s])
+                    );
+                    assertEq(
+                        params[i].liquidationThreshold,
+                        RiskConfig.STABLECOIN_LIQUIDATION_THRESHOLD,
+                        string.concat("Stablecoin liquidation threshold should match for ", stablecoins[s])
+                    );
                     break;
                 }
             }
@@ -91,8 +112,11 @@ contract RiskConfigTest is Test {
         RiskConfig.RiskParams[] memory params = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
 
         for (uint256 i = 0; i < params.length; i++) {
-            assertGt(params[i].liquidationThreshold, params[i].ltv, 
-                "Liquidation threshold must be greater than LTV for all assets");
+            assertGt(
+                params[i].liquidationThreshold,
+                params[i].ltv,
+                "Liquidation threshold must be greater than LTV for all assets"
+            );
         }
     }
 
@@ -100,8 +124,11 @@ contract RiskConfigTest is Test {
         RiskConfig.RiskParams[] memory params = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
 
         for (uint256 i = 0; i < params.length; i++) {
-            assertEq(params[i].reserveFactor, RiskConfig.BLUE_CHIP_RESERVE_FACTOR, 
-                "All assets should have blue-chip reserve factor (25%)");
+            assertEq(
+                params[i].reserveFactor,
+                RiskConfig.BLUE_CHIP_RESERVE_FACTOR,
+                "All assets should have blue-chip reserve factor (25%)"
+            );
         }
     }
 

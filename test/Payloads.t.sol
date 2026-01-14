@@ -133,16 +133,12 @@ contract PayloadsTest is Test {
 
     function test_ListingPayloadExecuteWithMock() public {
         ListingPayload payload = new ListingPayload();
-        
+
         // Mock the network addresses - use actual address from ArbitrumSepolia
         address poolConfigurator = ArbitrumSepolia.getPoolConfigurator();
-        
-        vm.mockCall(
-            poolConfigurator,
-            abi.encodeWithSelector(IPoolConfigurator.initReserves.selector),
-            abi.encode()
-        );
-        
+
+        vm.mockCall(poolConfigurator, abi.encodeWithSelector(IPoolConfigurator.initReserves.selector), abi.encode());
+
         vm.mockCall(
             poolConfigurator,
             abi.encodeWithSelector(IPoolConfigurator.setReserveStableRateBorrowing.selector),
@@ -169,7 +165,7 @@ contract PayloadsTest is Test {
     function test_PayloadsCanBeDeployedMultipleTimes() public {
         ListingPayload payload1 = new ListingPayload();
         ListingPayload payload2 = new ListingPayload();
-        
+
         assertNotEq(address(payload1), address(payload2), "Each deployment should create new instance");
     }
 }

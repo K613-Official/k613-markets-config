@@ -67,10 +67,8 @@ contract OraclesConfigTest is Test {
         }
 
         // Verify
-        (bool success, address[] memory invalidAssets) = OraclesConfig.verifyOracles(
-            address(oracle),
-            TokensConfig.Network.ArbitrumSepolia
-        );
+        (bool success, address[] memory invalidAssets) =
+            OraclesConfig.verifyOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
 
         assertTrue(success, "Verification should succeed");
         assertEq(invalidAssets.length, 0, "Should have no invalid assets");
@@ -87,10 +85,8 @@ contract OraclesConfigTest is Test {
         oracle.setPrice(tokens[1].asset, 0);
 
         // Verify
-        (bool success, address[] memory invalidAssets) = OraclesConfig.verifyOracles(
-            address(oracle),
-            TokensConfig.Network.ArbitrumSepolia
-        );
+        (bool success, address[] memory invalidAssets) =
+            OraclesConfig.verifyOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
 
         assertFalse(success, "Verification should fail");
         assertEq(invalidAssets.length, 2, "Should have 2 invalid assets");
@@ -112,7 +108,7 @@ contract OraclesConfigTest is Test {
     function test_ConfigureOraclesForMonadMainnet() public {
         // Should not revert even with placeholder addresses
         OraclesConfig.configureOracles(address(oracle), TokensConfig.Network.MonadMainnet);
-        
+
         // Verify it was called (no revert means success)
         assertTrue(true, "Should not revert");
     }
