@@ -1,0 +1,79 @@
+name: Security Check
+
+on:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  kairo:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run Kairo Security Check
+        env:
+          KAIRO_API_KEY: ${{ secrets.KAIRO_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${KAIRO_API_KEY:-}" ]]; then
+            echo "::error::KAIRO_API_KEY secret is not set"
+            exit 1
+          fi
+
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+          TMP_OBJS="$(mktemp)"
+          : > "$TMP_OBJS"
+
+          # Collect a reasonable set of tracked, text-like files only.
+          git ls-files -z \
+            | while IFS= read -r -d '' f; do
+                [[ -f "$f" ]] || continue
+
+                case "$f" in
+                  *.sol|*.toml|*.md|*.yml|*.yaml|*.json|*.txt|*.env.example|.env.example)
+                    ;;
+                  *)
+                    continue
+                    ;;
+                esac
+
+                # Skip very large files to avoid API/request limits.
+                size="$(wc -c < "$f" | tr -d '[:space:]')"
+                [[ "$size" -le 200000 ]] || continue
+
+                jq -Rs --arg path "$f" '{path: $path, content: .}' < "$f" >> "$TMP_OBJS"
+              done
+
+          REQUEST="$(jq -s '{source: {type: "inline", files: .}}' "$TMP_OBJS")"
+
+          RESPONSE_FILE="$(mktemp)"
+          HTTP_CODE="$(
+            curl -sS -o "$RESPONSE_FILE" -w "%{http_code}" \
+              -X POST "https://api.kairoaisec.com/v1/analyze" \
+              -H "Authorization: Bearer ${KAIRO_API_KEY}" \
+              -H "Content-Type: application/json" \
+              --data "$REQUEST"
+          )"
+
+          RESPONSE="$(< "$RESPONSE_FILE")"
+          echo "$RESPONSE" | jq -C . || true
+
+          if [[ "$HTTP_CODE" -ge 400 ]]; then
+            echo "::error::Kairo API request failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          DECISION="$(echo "$RESPONSE" | jq -r '.decision // empty')"
+          if [[ "$DECISION" == "BLOCK" ]]; then
+            echo "::error::Security check failed"
+            exit 1
+          fi
