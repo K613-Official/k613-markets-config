@@ -53,7 +53,8 @@ jobs:
                 jq -Rs --arg path "$f" '{path: $path, content: .}' < "$f" >> "$TMP_OBJS"
               done
 
-          REQUEST="$(jq -s '{source: {type: "inline", files: .}}' "$TMP_OBJS")"
+          REQUEST_FILE="$(mktemp)"
+          jq -s '{source: {type: "inline", files: .}}' "$TMP_OBJS" > "$REQUEST_FILE"
 
           RESPONSE_FILE="$(mktemp)"
           HTTP_CODE="$(
@@ -61,7 +62,7 @@ jobs:
               -X POST "https://api.kairoaisec.com/v1/analyze" \
               -H "Authorization: Bearer ${KAIRO_API_KEY}" \
               -H "Content-Type: application/json" \
-              --data "$REQUEST"
+              --data-binary @"$REQUEST_FILE"
           )"
 
           RESPONSE="$(< "$RESPONSE_FILE")"
