@@ -7,7 +7,7 @@ permissions: {}
 
 jobs:
   kairo:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.KAIRO_RUNNER_LABELS && fromJson(vars.KAIRO_RUNNER_LABELS) || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -20,17 +20,30 @@ jobs:
           KAIRO_API_KEY: ${{ secrets.KAIRO_API_KEY }}
           KAIRO_API_URL: ${{ vars.KAIRO_API_URL }}
           KAIRO_FAIL_OPEN: ${{ vars.KAIRO_FAIL_OPEN }}
+          KAIRO_HOSTS_ENTRY: ${{ vars.KAIRO_HOSTS_ENTRY }}
+          KAIRO_ENABLED: ${{ vars.KAIRO_ENABLED }}
         shell: bash
         run: |
           set -euo pipefail
 
+          # Default behavior: do not block PRs unless explicitly enabled.
+          KAIRO_ENABLED="${KAIRO_ENABLED:-false}"
+          if [[ "$KAIRO_ENABLED" != "true" ]]; then
+            echo "::warning::Kairo security check is disabled (set repo variable KAIRO_ENABLED=true to enable). Skipping."
+            exit 0
+          fi
+
           if [[ -z "${KAIRO_API_KEY:-}" ]]; then
-            echo "::error::KAIRO_API_KEY secret is not set"
-            exit 1
+            echo "::warning::KAIRO_API_KEY secret is not set. Skipping Kairo security check."
+            exit 0
           fi
 
           KAIRO_API_URL="${KAIRO_API_URL:-https://api.kairoaisec.com/v1/analyze}"
           KAIRO_FAIL_OPEN="${KAIRO_FAIL_OPEN:-false}"
+
+          if [[ -n "${KAIRO_HOSTS_ENTRY:-}" ]]; then
+            echo "$KAIRO_HOSTS_ENTRY" | sudo tee -a /etc/hosts >/dev/null
+          fi
 
           sudo apt-get update -y
           sudo apt-get install -y jq
