@@ -20,12 +20,19 @@ jobs:
           KAIRO_API_KEY: ${{ secrets.KAIRO_API_KEY }}
           # Optional override via GitHub Actions Variables (Settings → Secrets and variables → Actions → Variables)
           KAIRO_API_URL: ${{ vars.KAIRO_API_URL }}
+          # Set this as GitHub Actions Variable (not a secret)
+          KAIRO_PROJECT_ID: ${{ vars.KAIRO_PROJECT_ID }}
         shell: bash
         run: |
           set -euo pipefail
 
           if [[ -z "${KAIRO_API_KEY:-}" ]]; then
             echo "::error::KAIRO_API_KEY secret is not set"
+            exit 1
+          fi
+
+          if [[ -z "${KAIRO_PROJECT_ID:-}" ]]; then
+            echo "::error::KAIRO_PROJECT_ID variable is not set (Actions Variables)"
             exit 1
           fi
 
@@ -68,6 +75,9 @@ jobs:
 
           REQUEST_FILE="$(mktemp)"
           jq -s '{source: {type: "inline", files: .}}' "$TMP_OBJS" > "$REQUEST_FILE"
+          # Attach projectId if required by API.
+          jq --arg projectId "$KAIRO_PROJECT_ID" '. + {projectId: $projectId}' "$REQUEST_FILE" > "${REQUEST_FILE}.tmp"
+          mv "${REQUEST_FILE}.tmp" "$REQUEST_FILE"
 
           RESPONSE_FILE="$(mktemp)"
           HTTP_CODE="$(
@@ -80,15 +90,24 @@ jobs:
           )"
 
           RESPONSE="$(< "$RESPONSE_FILE")"
-          echo "$RESPONSE" | jq -C . || true
+          if echo "$RESPONSE" | jq -e . >/dev/null 2>&1; then
+            echo "$RESPONSE" | jq -C .
+            IS_JSON=1
+          else
+            echo "::warning::Kairo response is not valid JSON"
+            printf '%s\n' "$RESPONSE"
+            IS_JSON=0
+          fi
 
           if [[ "$HTTP_CODE" -ge 400 ]]; then
             echo "::error::Kairo API request failed with HTTP $HTTP_CODE"
             exit 1
           fi
 
-          DECISION="$(echo "$RESPONSE" | jq -r '.decision // empty')"
-          if [[ "$DECISION" == "BLOCK" ]]; then
-            echo "::error::Security check failed"
-            exit 1
+          if [[ "$IS_JSON" -eq 1 ]]; then
+            DECISION="$(echo "$RESPONSE" | jq -r '.decision // empty')"
+            if [[ "$DECISION" == "BLOCK" ]]; then
+              echo "::error::Security check failed"
+              exit 1
+            fi
           fi
