@@ -18,6 +18,8 @@ jobs:
       - name: Run Kairo Security Check
         env:
           KAIRO_API_KEY: ${{ secrets.KAIRO_API_KEY }}
+          KAIRO_API_URL: ${{ vars.KAIRO_API_URL }}
+          KAIRO_FAIL_OPEN: ${{ vars.KAIRO_FAIL_OPEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -26,6 +28,9 @@ jobs:
             echo "::error::KAIRO_API_KEY secret is not set"
             exit 1
           fi
+
+          KAIRO_API_URL="${KAIRO_API_URL:-https://api.kairoaisec.com/v1/analyze}"
+          KAIRO_FAIL_OPEN="${KAIRO_FAIL_OPEN:-false}"
 
           sudo apt-get update -y
           sudo apt-get install -y jq
@@ -57,13 +62,34 @@ jobs:
           jq -s '{source: {type: "inline", files: .}}' "$TMP_OBJS" > "$REQUEST_FILE"
 
           RESPONSE_FILE="$(mktemp)"
+          set +e
           HTTP_CODE="$(
             curl -sS -o "$RESPONSE_FILE" -w "%{http_code}" \
-              -X POST "https://api.kairoaisec.com/v1/analyze" \
+              --retry 3 --retry-all-errors --connect-timeout 10 --max-time 300 \
+              -X POST "$KAIRO_API_URL" \
               -H "Authorization: Bearer ${KAIRO_API_KEY}" \
               -H "Content-Type: application/json" \
               --data-binary @"$REQUEST_FILE"
           )"
+          CURL_EXIT="$?"
+          set -e
+
+          if [[ "$CURL_EXIT" -ne 0 ]]; then
+            if [[ "$CURL_EXIT" -eq 6 ]]; then
+              if [[ "${KAIRO_FAIL_OPEN}" == "true" ]]; then
+                echo "::warning::Could not resolve host for KAIRO_API_URL ($KAIRO_API_URL). Skipping security check because KAIRO_FAIL_OPEN=true."
+                exit 0
+              fi
+              echo "::error::Could not resolve host for KAIRO_API_URL ($KAIRO_API_URL). If this is an internal/non-public domain, use a self-hosted runner or set repo variable KAIRO_API_URL to a publicly resolvable endpoint. To avoid blocking PRs, set repo variable KAIRO_FAIL_OPEN=true."
+            else
+              if [[ "${KAIRO_FAIL_OPEN}" == "true" ]]; then
+                echo "::warning::curl failed (exit $CURL_EXIT) calling KAIRO_API_URL ($KAIRO_API_URL). Skipping security check because KAIRO_FAIL_OPEN=true."
+                exit 0
+              fi
+              echo "::error::curl failed (exit $CURL_EXIT) calling KAIRO_API_URL ($KAIRO_API_URL). To avoid blocking PRs, set repo variable KAIRO_FAIL_OPEN=true."
+            fi
+            exit 1
+          fi
 
           RESPONSE="$(< "$RESPONSE_FILE")"
           echo "$RESPONSE" | jq -C . || true
