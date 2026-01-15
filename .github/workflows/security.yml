@@ -18,6 +18,8 @@ jobs:
       - name: Run Kairo Security Check
         env:
           KAIRO_API_KEY: ${{ secrets.KAIRO_API_KEY }}
+          # Optional override via GitHub Actions Variables (Settings → Secrets and variables → Actions → Variables)
+          KAIRO_API_URL: ${{ vars.KAIRO_API_URL }}
         shell: bash
         run: |
           set -euo pipefail
@@ -27,8 +29,19 @@ jobs:
             exit 1
           fi
 
+          KAIRO_API_URL="${KAIRO_API_URL:-https://kairoaisec.com/api/v1/analyze}"
+
           sudo apt-get update -y
           sudo apt-get install -y jq
+
+          # If the runner's DNS is flaky, try public resolvers.
+          HOST="${KAIRO_API_URL#*://}"
+          HOST="${HOST%%/*}"
+          HOST="${HOST%%:*}"
+          if ! getent hosts "$HOST" >/dev/null 2>&1; then
+            echo "::warning::DNS resolution failed for ${HOST}; trying public DNS"
+            printf "nameserver 1.1.1.1\nnameserver 8.8.8.8\n" | sudo tee /etc/resolv.conf >/dev/null
+          fi
 
           TMP_OBJS="$(mktemp)"
           : > "$TMP_OBJS"
@@ -58,8 +71,9 @@ jobs:
 
           RESPONSE_FILE="$(mktemp)"
           HTTP_CODE="$(
-            curl -sS -o "$RESPONSE_FILE" -w "%{http_code}" \
-              -X POST "https://api.kairoaisec.com/v1/analyze" \
+            curl -sS --retry 3 --retry-delay 2 --retry-all-errors --connect-timeout 15 --max-time 300 \
+              -o "$RESPONSE_FILE" -w "%{http_code}" \
+              -X POST "$KAIRO_API_URL" \
               -H "Authorization: Bearer ${KAIRO_API_KEY}" \
               -H "Content-Type: application/json" \
               --data-binary @"$REQUEST_FILE"
