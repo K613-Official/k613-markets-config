@@ -24,7 +24,7 @@ contract ListingPayload {
         ConfiguratorInputTypes.InitReserveInput[] memory inputs =
             new ConfiguratorInputTypes.InitReserveInput[](tokens.length);
 
-        for (uint256 i; i < tokens.length; i++) {
+        for (uint256 i = 0; i < tokens.length; i++) {
             TokensConfig.Token memory t = tokens[i];
 
             inputs[i] = ConfiguratorInputTypes.InitReserveInput({
@@ -50,7 +50,7 @@ contract ListingPayload {
         configurator.initReserves(inputs);
 
         // Disable stable rate borrowing for all reserves (Aave-style: stable debt not deployed)
-        for (uint256 i; i < tokens.length; i++) {
+        for (uint256 i = 0; i < tokens.length; i++) {
             configurator.setReserveStableRateBorrowing(tokens[i].asset, false);
         }
     }

@@ -16,13 +16,28 @@ import {OracleUpdatePayload} from "../src/payloads/OracleUpdatePayload.sol";
 ///      4. ConfigureRisk (RiskUpdatePayload - caps + reserve factor)
 contract FullMarketSetup is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
+        // Try to get private key from env, fallback to broadcast() if not set
+        address deployer;
+        bool useEnvKey = false;
+
+        try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
+            deployer = vm.addr(pk);
+            vm.startBroadcast(pk);
+            useEnvKey = true;
+        } catch {
+            // Use --private-key from command line
+            vm.startBroadcast();
+            // Get deployer from wallets
+            address[] memory wallets = vm.getWallets();
+            if (wallets.length > 0) {
+                deployer = wallets[0];
+            } else {
+                deployer = tx.origin;
+            }
+        }
 
         console.log("Deployer address:", deployer);
         console.log("Starting full market setup...\n");
-
-        vm.startBroadcast(deployerPrivateKey);
 
         // Step 1: Configure Oracles
         console.log("=== Step 1: Configuring Oracles ===");

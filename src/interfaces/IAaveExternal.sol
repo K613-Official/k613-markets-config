@@ -34,6 +34,15 @@ interface IPoolAddressesProvider {
     /// @notice Returns the address of the price oracle
     /// @return The price oracle address
     function getPriceOracle() external view returns (address);
+
+    /// @notice Returns the address of the PoolDataProvider
+    /// @return The PoolDataProvider address
+    function getPoolDataProvider() external view returns (address);
+
+    /// @notice Returns the address for a given id
+    /// @param id The id to get the address for
+    /// @return The address for the given id
+    function getAddress(bytes32 id) external view returns (address);
 }
 
 /// @title IPoolConfigurator

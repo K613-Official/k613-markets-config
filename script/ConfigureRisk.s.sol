@@ -10,13 +10,26 @@ import {TokensConfig} from "../src/config/TokensConfig.sol";
 /// @notice Script for final risk parameter configuration
 contract ConfigureRisk is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
+        // Try to get private key from env, fallback to broadcast() if not set
+        address deployer;
+
+        try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
+            deployer = vm.addr(pk);
+            vm.startBroadcast(pk);
+        } catch {
+            // Use --private-key from command line
+            vm.startBroadcast();
+            // Get deployer from wallets
+            address[] memory wallets = vm.getWallets();
+            if (wallets.length > 0) {
+                deployer = wallets[0];
+            } else {
+                deployer = tx.origin;
+            }
+        }
 
         console.log("Deployer address:", deployer);
         console.log("Executing RiskUpdatePayload...");
-
-        vm.startBroadcast(deployerPrivateKey);
 
         // Deploy RiskUpdatePayload (stateless, execute-only payload)
         RiskUpdatePayload riskUpdatePayload = new RiskUpdatePayload();
@@ -47,20 +60,6 @@ contract ConfigureRisk is Script {
         vm.stopBroadcast();
 
         console.log("RiskUpdatePayload execution complete!");
-    }
-
-    /// @notice Executes RiskUpdatePayload from a deployed address
-    /// @param riskUpdatePayload RiskUpdatePayload contract address
-    function executeRiskUpdatePayload(address riskUpdatePayload) external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
-        vm.startBroadcast(deployerPrivateKey);
-
-        RiskUpdatePayload(riskUpdatePayload).execute();
-
-        console.log("RiskUpdatePayload executed successfully!");
-
-        vm.stopBroadcast();
     }
 }
 

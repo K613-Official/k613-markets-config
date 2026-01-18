@@ -17,7 +17,7 @@ library OraclesConfig {
         address[] memory assets = new address[](tokens.length);
         address[] memory sources = new address[](tokens.length);
 
-        for (uint256 i; i < tokens.length; i++) {
+        for (uint256 i = 0; i < tokens.length; i++) {
             assets[i] = tokens[i].asset;
             sources[i] = tokens[i].priceFeed;
         }
@@ -39,9 +39,14 @@ library OraclesConfig {
         address[] memory invalid = new address[](tokens.length);
         uint256 invalidCount;
 
-        for (uint256 i; i < tokens.length; i++) {
-            uint256 price = IAaveOracle(oracle).getAssetPrice(tokens[i].asset);
-            if (price == 0) {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            try IAaveOracle(oracle).getAssetPrice(tokens[i].asset) returns (uint256 price) {
+                if (price == 0) {
+                    invalid[invalidCount] = tokens[i].asset;
+                    invalidCount++;
+                }
+            } catch {
+                // Price feed doesn't exist or is invalid
                 invalid[invalidCount] = tokens[i].asset;
                 invalidCount++;
             }
@@ -54,7 +59,7 @@ library OraclesConfig {
             success = false;
             // Resize array to actual invalid count
             invalidAssets = new address[](invalidCount);
-            for (uint256 i; i < invalidCount; i++) {
+            for (uint256 i = 0; i < invalidCount; i++) {
                 invalidAssets[i] = invalid[i];
             }
         }
