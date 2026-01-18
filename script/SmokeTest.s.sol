@@ -21,15 +21,28 @@ contract SmokeTest is Script {
     uint256 constant TEST_BORROW_AMOUNT = 100 * 10 ** 18; // 100 tokens (for 18 decimals)
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
+        // Try to get private key from env, fallback to broadcast() if not set
+        address deployer;
+
+        try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
+            deployer = vm.addr(pk);
+            vm.startBroadcast(pk);
+        } catch {
+            // Use --private-key from command line
+            vm.startBroadcast();
+            // Get deployer from wallets
+            address[] memory wallets = vm.getWallets();
+            if (wallets.length > 0) {
+                deployer = wallets[0];
+            } else {
+                deployer = tx.origin;
+            }
+        }
 
         console.log("Deployer address:", deployer);
         console.log("Running smoke tests...");
 
         pool = IPool(_getPool());
-
-        vm.startBroadcast(deployerPrivateKey);
 
         // Test with WETH (first token)
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);

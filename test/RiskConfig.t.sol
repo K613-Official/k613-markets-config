@@ -56,31 +56,31 @@ contract RiskConfigTest is Test {
         );
     }
 
-    function test_WBTCHasCorrectRiskParams() public {
+    function test_BTCHasCorrectRiskParams() public {
         RiskConfig.RiskParams[] memory params = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
-        // Find WBTC
-        uint256 wbtcIndex = 0;
+        // Find BTC
+        uint256 btcIndex = 0;
         for (uint256 i = 0; i < tokens.length; i++) {
-            if (keccak256(bytes(tokens[i].symbol)) == keccak256(bytes("WBTC"))) {
-                wbtcIndex = i;
+            if (keccak256(bytes(tokens[i].symbol)) == keccak256(bytes("BTC"))) {
+                btcIndex = i;
                 break;
             }
         }
 
-        assertEq(params[wbtcIndex].ltv, RiskConfig.WBTC_LTV, "WBTC LTV should match");
+        assertEq(params[btcIndex].ltv, RiskConfig.BTC_LTV, "BTC LTV should match");
         assertEq(
-            params[wbtcIndex].liquidationThreshold,
-            RiskConfig.WBTC_LIQUIDATION_THRESHOLD,
-            "WBTC liquidation threshold should match"
+            params[btcIndex].liquidationThreshold,
+            RiskConfig.BTC_LIQUIDATION_THRESHOLD,
+            "BTC liquidation threshold should match"
         );
 
-        // WBTC should have lower caps
-        uint256 expectedBorrowCap = RiskConfig.WBTC_BORROW_CAP_MULTIPLIER * (10 ** tokens[wbtcIndex].decimals);
-        uint256 expectedSupplyCap = RiskConfig.WBTC_SUPPLY_CAP_MULTIPLIER * (10 ** tokens[wbtcIndex].decimals);
-        assertEq(params[wbtcIndex].borrowCap, expectedBorrowCap, "WBTC borrow cap should match");
-        assertEq(params[wbtcIndex].supplyCap, expectedSupplyCap, "WBTC supply cap should match");
+        // BTC should have lower caps
+        uint256 expectedBorrowCap = RiskConfig.BTC_BORROW_CAP_MULTIPLIER * (10 ** tokens[btcIndex].decimals);
+        uint256 expectedSupplyCap = RiskConfig.BTC_SUPPLY_CAP_MULTIPLIER * (10 ** tokens[btcIndex].decimals);
+        assertEq(params[btcIndex].borrowCap, expectedBorrowCap, "BTC borrow cap should match");
+        assertEq(params[btcIndex].supplyCap, expectedSupplyCap, "BTC supply cap should match");
     }
 
     function test_StablecoinsHaveCorrectRiskParams() public {
@@ -139,14 +139,14 @@ contract RiskConfigTest is Test {
         for (uint256 i = 0; i < params.length; i++) {
             uint8 decimals = tokens[i].decimals;
             bytes32 symbolHash = keccak256(bytes(tokens[i].symbol));
-            bytes32 wbtcHash = keccak256(bytes("WBTC"));
+            bytes32 btcHash = keccak256(bytes("BTC"));
 
-            if (symbolHash == wbtcHash) {
-                // WBTC has special caps
-                uint256 expectedBorrowCap = RiskConfig.WBTC_BORROW_CAP_MULTIPLIER * (10 ** decimals);
-                uint256 expectedSupplyCap = RiskConfig.WBTC_SUPPLY_CAP_MULTIPLIER * (10 ** decimals);
-                assertEq(params[i].borrowCap, expectedBorrowCap, "WBTC borrow cap calculation should match");
-                assertEq(params[i].supplyCap, expectedSupplyCap, "WBTC supply cap calculation should match");
+            if (symbolHash == btcHash) {
+                // BTC has special caps
+                uint256 expectedBorrowCap = RiskConfig.BTC_BORROW_CAP_MULTIPLIER * (10 ** decimals);
+                uint256 expectedSupplyCap = RiskConfig.BTC_SUPPLY_CAP_MULTIPLIER * (10 ** decimals);
+                assertEq(params[i].borrowCap, expectedBorrowCap, "BTC borrow cap calculation should match");
+                assertEq(params[i].supplyCap, expectedSupplyCap, "BTC supply cap calculation should match");
             } else {
                 // Other tokens use default multipliers
                 uint256 expectedBorrowCap = RiskConfig.DEFAULT_BORROW_CAP_MULTIPLIER * (10 ** decimals);

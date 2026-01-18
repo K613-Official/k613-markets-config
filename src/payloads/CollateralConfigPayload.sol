@@ -25,7 +25,7 @@ contract CollateralConfigPayload {
         RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(NETWORK);
         require(riskParams.length == tokens.length, "Risk params length mismatch");
 
-        for (uint256 i; i < tokens.length; i++) {
+        for (uint256 i = 0; i < tokens.length; i++) {
             RiskConfig.RiskParams memory risk = riskParams[i];
 
             // Configure as collateral (LTV, liquidation threshold, liquidation bonus)

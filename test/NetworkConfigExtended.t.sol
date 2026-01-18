@@ -9,7 +9,7 @@ import {IPoolAddressesProvider} from "../src/interfaces/IAaveExternal.sol";
 
 /// @title MockPoolAddressesProvider
 /// @notice Mock for testing NetworkConfig.getPoolConfigurator fallback
-contract MockPoolAddressesProvider is IPoolAddressesProvider {
+contract MockPoolAddressesProvider is IPoolAddressesProvider, Test {
     address public poolConfigurator;
 
     constructor(address _poolConfigurator) {
@@ -25,6 +25,14 @@ contract MockPoolAddressesProvider is IPoolAddressesProvider {
     }
 
     function getPriceOracle() external pure override returns (address) {
+        return address(0);
+    }
+
+    function getPoolDataProvider() external pure override returns (address) {
+        return address(0);
+    }
+
+    function getAddress(bytes32) external pure override returns (address) {
         return address(0);
     }
 }

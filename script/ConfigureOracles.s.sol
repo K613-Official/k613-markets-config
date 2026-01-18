@@ -2,7 +2,6 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {OracleUpdatePayload} from "../src/payloads/OracleUpdatePayload.sol";
 import {OraclesConfig} from "../src/config/OraclesConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
@@ -14,26 +13,38 @@ contract ConfigureOracles is Script {
     TokensConfig.Network internal constant NETWORK = TokensConfig.Network.ArbitrumSepolia;
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
+        // Try to get private key from env, fallback to broadcast() if not set
+        address deployer;
+
+        try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
+            deployer = vm.addr(pk);
+            vm.startBroadcast(pk);
+        } catch {
+            // Use --private-key from command line
+            vm.startBroadcast();
+            // Get deployer from wallets
+            address[] memory wallets = vm.getWallets();
+            if (wallets.length > 0) {
+                deployer = wallets[0];
+            } else {
+                deployer = tx.origin;
+            }
+        }
 
         console.log("Deployer address:", deployer);
         console.log("Configuring oracles...");
 
-        vm.startBroadcast(deployerPrivateKey);
+        address oracleAddress = _getOracle();
 
-        // Deploy OracleUpdatePayload
-        OracleUpdatePayload oraclePayload = new OracleUpdatePayload();
-        console.log("OracleUpdatePayload deployed at:", address(oraclePayload));
-
-        // Configure all oracles
+        // Configure oracles directly via deployer
+        // Deployer must have Pool Admin or Asset Listing Admin rights
         console.log("Configuring price feeds...");
-        oraclePayload.execute();
+        OraclesConfig.configureOracles(oracleAddress, NETWORK);
+        console.log("Oracles configured successfully!");
 
         // Verify oracles using OraclesConfig library
         console.log("Verifying oracles...");
-        address oracle = _getOracle();
-        (bool success, address[] memory invalidAssets) = OraclesConfig.verifyOracles(oracle, NETWORK);
+        (bool success, address[] memory invalidAssets) = OraclesConfig.verifyOracles(oracleAddress, NETWORK);
 
         if (success) {
             console.log("All oracles configured successfully!");
@@ -47,15 +58,6 @@ contract ConfigureOracles is Script {
         vm.stopBroadcast();
 
         console.log("Oracle configuration complete!");
-    }
-
-    /// @notice Verifies a single asset price
-    /// @param asset Asset address
-    function verifyAssetPrice(address asset) external view {
-        address oracle = _getOracle();
-        address source = OraclesConfig.getPriceFeedSource(oracle, asset);
-        require(source != address(0), "Price feed not set");
-        console.log("Asset", asset, "price feed source:", source);
     }
 
     function _getOracle() private pure returns (address) {

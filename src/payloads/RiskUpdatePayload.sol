@@ -22,7 +22,7 @@ contract RiskUpdatePayload {
 
         RiskConfig.RiskParams[] memory params = RiskConfig.getRiskParams(NETWORK);
 
-        for (uint256 i; i < params.length; i++) {
+        for (uint256 i = 0; i < params.length; i++) {
             configurator.setBorrowCap(params[i].asset, params[i].borrowCap);
             configurator.setSupplyCap(params[i].asset, params[i].supplyCap);
             configurator.setReserveFactor(params[i].asset, params[i].reserveFactor);
