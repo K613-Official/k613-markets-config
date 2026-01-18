@@ -48,7 +48,7 @@ contract TokensConfigExtendedTest is Test {
     function test_TokenSymbolsMatchExpected() public {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
-        string[5] memory expectedSymbols = ["WETH", "USDC", "USDT", "DAI", "WBTC"];
+        string[5] memory expectedSymbols = ["WETH", "USDC", "USDT", "DAI", "BTC"];
 
         for (uint256 i = 0; i < tokens.length; i++) {
             assertEq(

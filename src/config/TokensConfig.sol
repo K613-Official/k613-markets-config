@@ -114,7 +114,7 @@ library TokensConfig {
             asset: address(0), // TODO: Set WBTC Monad Mainnet address
             priceFeed: address(0), // TODO: Set WBTC/USD Monad Mainnet price feed
             decimals: 8,
-            symbol: "WBTC"
+            symbol: "BTC"
         });
     }
 }

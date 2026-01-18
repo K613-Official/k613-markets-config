@@ -31,8 +31,8 @@ contract TokensConfigTest is Test {
         assertEq(tokens[3].decimals, 18, "DAI should have 18 decimals");
 
         // Check WBTC
-        assertEq(tokens[4].symbol, "WBTC", "Fifth token should be WBTC");
-        assertEq(tokens[4].decimals, 8, "WBTC should have 8 decimals");
+        assertEq(tokens[4].symbol, "BTC", "Fifth token should be BTC");
+        assertEq(tokens[4].decimals, 8, "BTC should have 8 decimals");
     }
 
     function test_GetMonadMainnetTokens() public {
@@ -51,7 +51,7 @@ contract TokensConfigTest is Test {
         assertEq(tokens[1].symbol, "USDC", "Second token should be USDC");
         assertEq(tokens[2].symbol, "USDT", "Third token should be USDT");
         assertEq(tokens[3].symbol, "DAI", "Fourth token should be DAI");
-        assertEq(tokens[4].symbol, "WBTC", "Fifth token should be WBTC");
+        assertEq(tokens[4].symbol, "BTC", "Fifth token should be BTC");
     }
 
     function test_UnsupportedNetwork() public {
@@ -78,7 +78,7 @@ contract TokensConfigTest is Test {
 
         // Known decimals for each token
         uint8[5] memory expectedDecimals = [uint8(18), 6, 6, 18, 8];
-        string[5] memory symbols = ["WETH", "USDC", "USDT", "DAI", "WBTC"];
+        string[5] memory symbols = ["WETH", "USDC", "USDT", "DAI", "BTC"];
 
         for (uint256 i = 0; i < tokens.length; i++) {
             assertEq(tokens[i].decimals, expectedDecimals[i], string.concat("Decimals mismatch for ", symbols[i]));
