@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {IPoolAddressesProvider} from "../../interfaces/IAaveExternal.sol";
+import {IPoolAddressesProvider} from "lib/L2-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
 
 /// @title NetworkConfig
 /// @notice Interface for network-specific configurations

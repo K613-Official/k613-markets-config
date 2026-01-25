@@ -6,7 +6,12 @@ import {ListingPayload} from "../src/payloads/ListingPayload.sol";
 import {CollateralConfigPayload} from "../src/payloads/CollateralConfigPayload.sol";
 import {OracleUpdatePayload} from "../src/payloads/OracleUpdatePayload.sol";
 import {RiskUpdatePayload} from "../src/payloads/RiskUpdatePayload.sol";
-import {ConfiguratorInputTypes} from "../src/interfaces/IAaveExternal.sol";
+import {
+    IDefaultInterestRateStrategyV2
+} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+import {
+    ConfiguratorInputTypes
+} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
@@ -25,7 +30,6 @@ contract PayloadsInternalTest is Test {
         assertEq(tokens.length, 5, "Should have 5 tokens");
         assertNotEq(addrs.aTokenImpl, address(0), "AToken impl should be set");
         assertNotEq(addrs.variableDebtImpl, address(0), "Variable debt impl should be set");
-        assertEq(addrs.stableDebtImpl, address(0), "Stable debt should be disabled");
         assertNotEq(addrs.defaultInterestRateStrategy, address(0), "Interest rate strategy should be set");
     }
 
@@ -81,17 +85,17 @@ contract PayloadsInternalTest is Test {
         assertNotEq(arbitrumAddrs.oracle, address(0), "Oracle should be set");
     }
 
-    function test_ListingPayloadStableDebtHandling() public view {
+    function test_ListingPayloadInterestRateDataPreparation() public view {
         NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        bytes memory interestRateData = _defaultInterestRateData();
 
-        // Verify stable debt is properly disabled
-        assertEq(addrs.stableDebtImpl, address(0), "Stable debt impl should be zero");
+        assertNotEq(addrs.defaultInterestRateStrategy, address(0), "Interest rate strategy should be set");
 
-        // Verify that for each token, stable debt would be disabled
+        // Verify that for each token, interest rate data would be used
         for (uint256 i = 0; i < tokens.length; i++) {
-            // In ListingPayload, setReserveStableRateBorrowing(tokens[i].asset, false) would be called
             assertNotEq(tokens[i].asset, address(0), "Token asset should be set");
+            assertGt(interestRateData.length, 0, "Interest rate data should not be empty");
         }
     }
 
@@ -121,9 +125,8 @@ contract PayloadsInternalTest is Test {
         for (uint256 i = 0; i < tokens.length; i++) {
             ConfiguratorInputTypes.InitReserveInput memory input = ConfiguratorInputTypes.InitReserveInput({
                 aTokenImpl: addrs.aTokenImpl,
-                stableDebtTokenImpl: addrs.stableDebtImpl,
                 variableDebtTokenImpl: addrs.variableDebtImpl,
-                underlyingAssetDecimals: tokens[i].decimals,
+                useVirtualBalance: true,
                 interestRateStrategyAddress: addrs.defaultInterestRateStrategy,
                 underlyingAsset: tokens[i].asset,
                 treasury: addrs.treasury,
@@ -132,18 +135,27 @@ contract PayloadsInternalTest is Test {
                 aTokenSymbol: string.concat("a", tokens[i].symbol),
                 variableDebtTokenName: string.concat("Aave Variable Debt ", tokens[i].symbol),
                 variableDebtTokenSymbol: string.concat("variableDebt", tokens[i].symbol),
-                stableDebtTokenName: "",
-                stableDebtTokenSymbol: "",
-                params: ""
+                params: "",
+                interestRateData: _defaultInterestRateData()
             });
 
             // Verify structure
             assertEq(input.underlyingAsset, tokens[i].asset, "Asset should match");
-            assertEq(input.stableDebtTokenImpl, address(0), "Stable debt should be disabled");
-            assertEq(bytes(input.stableDebtTokenName).length, 0, "Stable debt name should be empty");
-            assertEq(bytes(input.stableDebtTokenSymbol).length, 0, "Stable debt symbol should be empty");
+            assertTrue(input.useVirtualBalance, "Virtual balance should be enabled");
+            assertGt(input.interestRateData.length, 0, "Interest rate data should not be empty");
             assertGt(bytes(input.aTokenName).length, 0, "AToken name should not be empty");
             assertGt(bytes(input.aTokenSymbol).length, 0, "AToken symbol should not be empty");
         }
+    }
+
+    function _defaultInterestRateData() private pure returns (bytes memory) {
+        return abi.encode(
+            IDefaultInterestRateStrategyV2.InterestRateData({
+                optimalUsageRatio: 80_00,
+                baseVariableBorrowRate: 10_00,
+                variableRateSlope1: 4_00,
+                variableRateSlope2: 60_00
+            })
+        );
     }
 }

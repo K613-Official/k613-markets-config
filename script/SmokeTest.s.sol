@@ -2,8 +2,8 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {IPool} from "../src/interfaces/IAaveExternal.sol";
-import {IERC20} from "../src/interfaces/IAaveExternal.sol";
+import {IPool} from "lib/L2-Protocol/src/contracts/interfaces/IPool.sol";
+import {IERC20} from "lib/L2-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 

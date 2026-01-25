@@ -2,8 +2,13 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {IPoolConfigurator} from "../src/interfaces/IAaveExternal.sol";
-import {ConfiguratorInputTypes} from "../src/interfaces/IAaveExternal.sol";
+import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
+import {
+    IDefaultInterestRateStrategyV2
+} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+import {
+    ConfiguratorInputTypes
+} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
@@ -11,7 +16,7 @@ import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 
 /// @title ListAssets
 /// @notice Script to initialize reserves (initReserves)
-contract ListAssets is Script {
+contract InitReserves is Script {
     // Change this constant to switch networks
     TokensConfig.Network internal constant NETWORK = TokensConfig.Network.ArbitrumSepolia;
 
@@ -43,15 +48,15 @@ contract ListAssets is Script {
         // Prepare initReserves inputs
         ConfiguratorInputTypes.InitReserveInput[] memory inputs =
             new ConfiguratorInputTypes.InitReserveInput[](tokens.length);
+        bytes memory interestRateData = _defaultInterestRateData();
 
         for (uint256 i = 0; i < tokens.length; i++) {
             TokensConfig.Token memory t = tokens[i];
 
             inputs[i] = ConfiguratorInputTypes.InitReserveInput({
                 aTokenImpl: addrs.aTokenImpl,
-                stableDebtTokenImpl: addrs.stableDebtImpl,
                 variableDebtTokenImpl: addrs.variableDebtImpl,
-                underlyingAssetDecimals: t.decimals,
+                useVirtualBalance: true,
                 interestRateStrategyAddress: addrs.defaultInterestRateStrategy,
                 underlyingAsset: t.asset,
                 treasury: addrs.treasury,
@@ -60,9 +65,8 @@ contract ListAssets is Script {
                 aTokenSymbol: string.concat("a", t.symbol),
                 variableDebtTokenName: string.concat("Aave Variable Debt ", t.symbol),
                 variableDebtTokenSymbol: string.concat("variableDebt", t.symbol),
-                stableDebtTokenName: "",
-                stableDebtTokenSymbol: "",
-                params: ""
+                params: "",
+                interestRateData: interestRateData
             });
         }
 
@@ -89,18 +93,6 @@ contract ListAssets is Script {
 
         console.log("Initialized:", successCount, "Skipped:", skipCount);
 
-        // Disable stable rate borrowing for all reserves (only if reserves were initialized)
-        if (successCount > 0) {
-            for (uint256 i = 0; i < tokens.length; i++) {
-                try configurator.setReserveStableRateBorrowing(tokens[i].asset, false) {
-                // Success - already disabled or just disabled
-                }
-                    catch {
-                    // Already disabled or failed - skip
-                }
-            }
-        }
-
         console.log("Reserves initialized successfully!");
         console.log("Next steps:");
         console.log("  1. Execute ConfigureCollateral to configure collateral parameters");
@@ -119,6 +111,17 @@ contract ListAssets is Script {
         } else {
             revert("Unsupported network");
         }
+    }
+
+    function _defaultInterestRateData() private pure returns (bytes memory) {
+        return abi.encode(
+            IDefaultInterestRateStrategyV2.InterestRateData({
+                optimalUsageRatio: 80_00,
+                baseVariableBorrowRate: 10_00,
+                variableRateSlope1: 4_00,
+                variableRateSlope2: 60_00
+            })
+        );
     }
 }
 

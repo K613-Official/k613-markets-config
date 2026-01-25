@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {IPoolConfigurator} from "../interfaces/IAaveExternal.sol";
-import {ConfiguratorInputTypes} from "../interfaces/IAaveExternal.sol";
+import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
+import {
+    IDefaultInterestRateStrategyV2
+} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+import {
+    ConfiguratorInputTypes
+} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../config/TokensConfig.sol";
 import {NetworkConfig} from "../config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../config/networks/ArbitrumSepolia.sol";
@@ -23,15 +28,15 @@ contract ListingPayload {
 
         ConfiguratorInputTypes.InitReserveInput[] memory inputs =
             new ConfiguratorInputTypes.InitReserveInput[](tokens.length);
+        bytes memory interestRateData = _defaultInterestRateData();
 
         for (uint256 i = 0; i < tokens.length; i++) {
             TokensConfig.Token memory t = tokens[i];
 
             inputs[i] = ConfiguratorInputTypes.InitReserveInput({
                 aTokenImpl: addrs.aTokenImpl,
-                stableDebtTokenImpl: addrs.stableDebtImpl,
                 variableDebtTokenImpl: addrs.variableDebtImpl,
-                underlyingAssetDecimals: t.decimals,
+                useVirtualBalance: true,
                 interestRateStrategyAddress: addrs.defaultInterestRateStrategy,
                 underlyingAsset: t.asset,
                 treasury: addrs.treasury,
@@ -40,19 +45,13 @@ contract ListingPayload {
                 aTokenSymbol: string.concat("a", t.symbol),
                 variableDebtTokenName: string.concat("Aave Variable Debt ", t.symbol),
                 variableDebtTokenSymbol: string.concat("variableDebt", t.symbol),
-                stableDebtTokenName: "",
-                stableDebtTokenSymbol: "",
-                params: ""
+                params: "",
+                interestRateData: interestRateData
             });
         }
 
         IPoolConfigurator configurator = IPoolConfigurator(NetworkConfig.getPoolConfigurator(addrs));
         configurator.initReserves(inputs);
-
-        // Disable stable rate borrowing for all reserves (Aave-style: stable debt not deployed)
-        for (uint256 i = 0; i < tokens.length; i++) {
-            configurator.setReserveStableRateBorrowing(tokens[i].asset, false);
-        }
     }
 
     function _getAddresses() private pure returns (NetworkConfig.Addresses memory) {
@@ -63,5 +62,16 @@ contract ListingPayload {
         } else {
             revert("Unsupported network");
         }
+    }
+
+    function _defaultInterestRateData() private pure returns (bytes memory) {
+        return abi.encode(
+            IDefaultInterestRateStrategyV2.InterestRateData({
+                optimalUsageRatio: 80_00,
+                baseVariableBorrowRate: 10_00,
+                variableRateSlope1: 4_00,
+                variableRateSlope2: 60_00
+            })
+        );
     }
 }

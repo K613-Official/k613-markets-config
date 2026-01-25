@@ -2,3 +2,6 @@
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
 
+[submodule "lib/L2-Protocol"]
+	path = lib/L2-Protocol
+	url = https://github.com/K613-Official/L2-Protocol

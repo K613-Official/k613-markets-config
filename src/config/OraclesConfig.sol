@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {TokensConfig} from "./TokensConfig.sol";
-import {IAaveOracle} from "../interfaces/IAaveExternal.sol";
+import {IAaveOracle} from "lib/L2-Protocol/src/contracts/interfaces/IAaveOracle.sol";
 
 /// @title OraclesConfig
 /// @notice Configuration and utilities for Aave v3 Oracle setup

@@ -4,15 +4,14 @@ pragma solidity ^0.8.30;
 import {Test, console} from "forge-std/Test.sol";
 import {OraclesConfig} from "../src/config/OraclesConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
-import {IAaveOracle} from "../src/interfaces/IAaveExternal.sol";
 
 /// @title MockAaveOracle
 /// @notice Mock oracle for testing
-contract MockAaveOracle is IAaveOracle {
+contract MockAaveOracle {
     mapping(address => address) public sources;
     mapping(address => uint256) public prices;
 
-    function setAssetSources(address[] calldata assets, address[] calldata _sources) external override {
+    function setAssetSources(address[] calldata assets, address[] calldata _sources) external {
         require(assets.length == _sources.length, "Length mismatch");
         for (uint256 i = 0; i < assets.length; i++) {
             sources[assets[i]] = _sources[i];
@@ -21,11 +20,11 @@ contract MockAaveOracle is IAaveOracle {
         }
     }
 
-    function getAssetPrice(address asset) external view override returns (uint256) {
+    function getAssetPrice(address asset) external view returns (uint256) {
         return prices[asset];
     }
 
-    function getSourceOfAsset(address asset) external view override returns (address) {
+    function getSourceOfAsset(address asset) external view returns (address) {
         return sources[asset];
     }
 
