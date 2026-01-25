@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {IERC20} from "../src/interfaces/IAaveExternal.sol";
+import {IERC20} from "lib/L2-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
 
 /// @title DeployTestnetTokens
 contract DeployTestnetTokens is Script {

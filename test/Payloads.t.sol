@@ -6,9 +6,8 @@ import {ListingPayload} from "../src/payloads/ListingPayload.sol";
 import {CollateralConfigPayload} from "../src/payloads/CollateralConfigPayload.sol";
 import {OracleUpdatePayload} from "../src/payloads/OracleUpdatePayload.sol";
 import {RiskUpdatePayload} from "../src/payloads/RiskUpdatePayload.sol";
-import {IPoolConfigurator} from "../src/interfaces/IAaveExternal.sol";
-import {ConfiguratorInputTypes} from "../src/interfaces/IAaveExternal.sol";
-import {IAaveOracle} from "../src/interfaces/IAaveExternal.sol";
+import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
+import {ConfiguratorInputTypes} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {OraclesConfig} from "../src/config/OraclesConfig.sol";
@@ -16,9 +15,8 @@ import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 
 /// @title MockPoolConfigurator
 /// @notice Mock PoolConfigurator for testing payloads
-contract MockPoolConfigurator is IPoolConfigurator {
+contract MockPoolConfigurator {
     ConfiguratorInputTypes.InitReserveInput[] public initReserveInputs;
-    mapping(address => bool) public stableRateBorrowingEnabled;
     mapping(address => uint256) public ltv;
     mapping(address => uint256) public liquidationThreshold;
     mapping(address => uint256) public liquidationBonus;
@@ -27,14 +25,10 @@ contract MockPoolConfigurator is IPoolConfigurator {
     mapping(address => uint256) public supplyCap;
     mapping(address => uint256) public reserveFactor;
 
-    function initReserves(ConfiguratorInputTypes.InitReserveInput[] calldata inputs) external override {
+    function initReserves(ConfiguratorInputTypes.InitReserveInput[] calldata inputs) external {
         for (uint256 i = 0; i < inputs.length; i++) {
             initReserveInputs.push(inputs[i]);
         }
-    }
-
-    function setReserveStableRateBorrowing(address asset, bool enabled) external override {
-        stableRateBorrowingEnabled[asset] = enabled;
     }
 
     function configureReserveAsCollateral(
@@ -42,58 +36,46 @@ contract MockPoolConfigurator is IPoolConfigurator {
         uint256 _ltv,
         uint256 _liquidationThreshold,
         uint256 _liquidationBonus
-    ) external override {
+    ) external {
         ltv[asset] = _ltv;
         liquidationThreshold[asset] = _liquidationThreshold;
         liquidationBonus[asset] = _liquidationBonus;
     }
 
-    function setReserveBorrowing(address asset, bool enabled) external override {
+    function setReserveBorrowing(address asset, bool enabled) external {
         borrowingEnabled[asset] = enabled;
     }
 
-    function setBorrowCap(address asset, uint256 cap) external override {
+    function setBorrowCap(address asset, uint256 cap) external {
         borrowCap[asset] = cap;
     }
 
-    function setSupplyCap(address asset, uint256 cap) external override {
+    function setSupplyCap(address asset, uint256 cap) external {
         supplyCap[asset] = cap;
     }
 
-    function setReserveFactor(address asset, uint256 factor) external override {
+    function setReserveFactor(address asset, uint256 factor) external {
         reserveFactor[asset] = factor;
-    }
-
-    function setLiquidationBonus(address asset, uint256 newLiquidationBonus) external override {
-        liquidationBonus[asset] = newLiquidationBonus;
-    }
-
-    function setLiquidationThreshold(address asset, uint256 newLiquidationThreshold) external override {
-        liquidationThreshold[asset] = newLiquidationThreshold;
-    }
-
-    function setLtv(address asset, uint256 newLtv) external override {
-        ltv[asset] = newLtv;
     }
 }
 
 /// @title MockAaveOracleForPayloads
 /// @notice Mock oracle for payload testing
-contract MockAaveOracleForPayloads is IAaveOracle {
+contract MockAaveOracleForPayloads {
     mapping(address => address) public sources;
 
-    function setAssetSources(address[] calldata assets, address[] calldata _sources) external override {
+    function setAssetSources(address[] calldata assets, address[] calldata _sources) external {
         require(assets.length == _sources.length, "Length mismatch");
         for (uint256 i = 0; i < assets.length; i++) {
             sources[assets[i]] = _sources[i];
         }
     }
 
-    function getAssetPrice(address asset) external pure override returns (uint256) {
+    function getAssetPrice(address asset) external pure returns (uint256) {
         return 1000 * 1e8; // Mock price
     }
 
-    function getSourceOfAsset(address asset) external view override returns (address) {
+    function getSourceOfAsset(address asset) external view returns (address) {
         return sources[asset];
     }
 }
@@ -138,12 +120,6 @@ contract PayloadsTest is Test {
         address poolConfigurator = ArbitrumSepolia.getPoolConfigurator();
 
         vm.mockCall(poolConfigurator, abi.encodeWithSelector(IPoolConfigurator.initReserves.selector), abi.encode());
-
-        vm.mockCall(
-            poolConfigurator,
-            abi.encodeWithSelector(IPoolConfigurator.setReserveStableRateBorrowing.selector),
-            abi.encode()
-        );
 
         // This will revert because we're calling real addresses, but structure is correct
         // In integration tests, we'd use actual deployed contracts

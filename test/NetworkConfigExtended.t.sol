@@ -5,34 +5,33 @@ import {Test, console} from "forge-std/Test.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
-import {IPoolAddressesProvider} from "../src/interfaces/IAaveExternal.sol";
 
 /// @title MockPoolAddressesProvider
 /// @notice Mock for testing NetworkConfig.getPoolConfigurator fallback
-contract MockPoolAddressesProvider is IPoolAddressesProvider, Test {
+contract MockPoolAddressesProvider is Test {
     address public poolConfigurator;
 
     constructor(address _poolConfigurator) {
         poolConfigurator = _poolConfigurator;
     }
 
-    function getPoolConfigurator() external view override returns (address) {
+    function getPoolConfigurator() external view returns (address) {
         return poolConfigurator;
     }
 
-    function getPool() external pure override returns (address) {
+    function getPool() external pure returns (address) {
         return address(0);
     }
 
-    function getPriceOracle() external pure override returns (address) {
+    function getPriceOracle() external pure returns (address) {
         return address(0);
     }
 
-    function getPoolDataProvider() external pure override returns (address) {
+    function getPoolDataProvider() external pure returns (address) {
         return address(0);
     }
 
-    function getAddress(bytes32) external pure override returns (address) {
+    function getAddress(bytes32) external pure returns (address) {
         return address(0);
     }
 }

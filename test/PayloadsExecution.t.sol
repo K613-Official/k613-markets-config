@@ -6,7 +6,8 @@ import {ListingPayload} from "../src/payloads/ListingPayload.sol";
 import {CollateralConfigPayload} from "../src/payloads/CollateralConfigPayload.sol";
 import {OracleUpdatePayload} from "../src/payloads/OracleUpdatePayload.sol";
 import {RiskUpdatePayload} from "../src/payloads/RiskUpdatePayload.sol";
-import {ConfiguratorInputTypes} from "../src/interfaces/IAaveExternal.sol";
+import {IDefaultInterestRateStrategyV2} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+import {ConfiguratorInputTypes} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
@@ -43,13 +44,13 @@ contract PayloadsExecutionTest is Test {
         // Verify that inputs would be created correctly (same logic as ListingPayload)
         ConfiguratorInputTypes.InitReserveInput[] memory inputs =
             new ConfiguratorInputTypes.InitReserveInput[](tokens.length);
+        bytes memory interestRateData = _defaultInterestRateData();
 
         for (uint256 i = 0; i < tokens.length; i++) {
             inputs[i] = ConfiguratorInputTypes.InitReserveInput({
                 aTokenImpl: addrs.aTokenImpl,
-                stableDebtTokenImpl: addrs.stableDebtImpl,
                 variableDebtTokenImpl: addrs.variableDebtImpl,
-                underlyingAssetDecimals: tokens[i].decimals,
+                useVirtualBalance: true,
                 interestRateStrategyAddress: addrs.defaultInterestRateStrategy,
                 underlyingAsset: tokens[i].asset,
                 treasury: addrs.treasury,
@@ -58,15 +59,18 @@ contract PayloadsExecutionTest is Test {
                 aTokenSymbol: string.concat("a", tokens[i].symbol),
                 variableDebtTokenName: string.concat("Aave Variable Debt ", tokens[i].symbol),
                 variableDebtTokenSymbol: string.concat("variableDebt", tokens[i].symbol),
-                stableDebtTokenName: "",
-                stableDebtTokenSymbol: "",
-                params: ""
+                params: "",
+                interestRateData: interestRateData
             });
 
             // Verify structure
             assertEq(inputs[i].underlyingAsset, tokens[i].asset, "Asset should match");
-            assertEq(inputs[i].underlyingAssetDecimals, tokens[i].decimals, "Decimals should match");
-            assertEq(inputs[i].stableDebtTokenImpl, address(0), "Stable debt should be disabled");
+            assertTrue(inputs[i].useVirtualBalance, "Virtual balance should be enabled");
+            assertEq(
+                keccak256(inputs[i].interestRateData),
+                keccak256(interestRateData),
+                "Interest rate data should match default"
+            );
             assertNotEq(inputs[i].aTokenImpl, address(0), "AToken impl should be set");
             assertNotEq(inputs[i].variableDebtTokenImpl, address(0), "Variable debt impl should be set");
             assertGt(bytes(inputs[i].aTokenName).length, 0, "AToken name should not be empty");
@@ -128,10 +132,9 @@ contract PayloadsExecutionTest is Test {
         assertNotEq(addrs.oracle, address(0), "Oracle should be set for ArbitrumSepolia");
     }
 
-    function test_ListingPayloadStableDebtDisabled() public view {
+    function test_ListingPayloadInterestRateStrategySet() public view {
         NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
-        // Verify stable debt is disabled (address(0))
-        assertEq(addrs.stableDebtImpl, address(0), "Stable debt should be disabled");
+        assertNotEq(addrs.defaultInterestRateStrategy, address(0), "Interest rate strategy should be set");
     }
 
     function test_PayloadsNetworkSwitching() public view {
@@ -165,5 +168,16 @@ contract PayloadsExecutionTest is Test {
             );
             assertGt(bytes(variableDebtTokenSymbol).length, 0, "Variable debt symbol should not be empty");
         }
+    }
+
+    function _defaultInterestRateData() private pure returns (bytes memory) {
+        return abi.encode(
+            IDefaultInterestRateStrategyV2.InterestRateData({
+                optimalUsageRatio: 80_00,
+                baseVariableBorrowRate: 10_00,
+                variableRateSlope1: 4_00,
+                variableRateSlope2: 60_00
+            })
+        );
     }
 }
