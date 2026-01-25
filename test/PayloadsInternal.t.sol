@@ -6,8 +6,12 @@ import {ListingPayload} from "../src/payloads/ListingPayload.sol";
 import {CollateralConfigPayload} from "../src/payloads/CollateralConfigPayload.sol";
 import {OracleUpdatePayload} from "../src/payloads/OracleUpdatePayload.sol";
 import {RiskUpdatePayload} from "../src/payloads/RiskUpdatePayload.sol";
-import {IDefaultInterestRateStrategyV2} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
-import {ConfiguratorInputTypes} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
+import {
+    IDefaultInterestRateStrategyV2
+} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+import {
+    ConfiguratorInputTypes
+} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";

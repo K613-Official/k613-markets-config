@@ -7,7 +7,9 @@ import {CollateralConfigPayload} from "../src/payloads/CollateralConfigPayload.s
 import {OracleUpdatePayload} from "../src/payloads/OracleUpdatePayload.sol";
 import {RiskUpdatePayload} from "../src/payloads/RiskUpdatePayload.sol";
 import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
-import {ConfiguratorInputTypes} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
+import {
+    ConfiguratorInputTypes
+} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {OraclesConfig} from "../src/config/OraclesConfig.sol";

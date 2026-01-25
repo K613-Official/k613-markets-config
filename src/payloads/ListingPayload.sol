@@ -2,8 +2,12 @@
 pragma solidity ^0.8.30;
 
 import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
-import {IDefaultInterestRateStrategyV2} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
-import {ConfiguratorInputTypes} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
+import {
+    IDefaultInterestRateStrategyV2
+} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+import {
+    ConfiguratorInputTypes
+} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../config/TokensConfig.sol";
 import {NetworkConfig} from "../config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../config/networks/ArbitrumSepolia.sol";

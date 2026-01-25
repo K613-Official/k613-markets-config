@@ -3,8 +3,12 @@ pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
 import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
-import {IDefaultInterestRateStrategyV2} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
-import {ConfiguratorInputTypes} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
+import {
+    IDefaultInterestRateStrategyV2
+} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+import {
+    ConfiguratorInputTypes
+} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
