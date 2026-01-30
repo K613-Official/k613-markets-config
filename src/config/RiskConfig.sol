@@ -28,13 +28,13 @@ library RiskConfig {
     uint256 internal constant BLUE_CHIP_RESERVE_FACTOR = 2500; // 25% for blue-chip assets
     uint256 internal constant RISK_ASSET_RESERVE_FACTOR = 5000; // 50% for risk assets
 
-    // Default caps
-    uint256 internal constant DEFAULT_BORROW_CAP_MULTIPLIER = 1e6;
-    uint256 internal constant DEFAULT_SUPPLY_CAP_MULTIPLIER = 2e6;
+    // Default caps (whole tokens, not scaled by decimals)
+    uint256 internal constant DEFAULT_BORROW_CAP = 1_000_000;
+    uint256 internal constant DEFAULT_SUPPLY_CAP = 2_000_000;
 
-    // BTC specific caps
-    uint256 internal constant BTC_BORROW_CAP_MULTIPLIER = 1e2;
-    uint256 internal constant BTC_SUPPLY_CAP_MULTIPLIER = 2e2;
+    // BTC specific caps (whole tokens)
+    uint256 internal constant BTC_BORROW_CAP = 100;
+    uint256 internal constant BTC_SUPPLY_CAP = 200;
 
     struct RiskParams {
         address asset;
@@ -69,13 +69,11 @@ library RiskConfig {
         bytes32 daiHash
     ) private pure returns (RiskParams memory) {
         bytes32 symbolHash = _hashString(token.symbol);
-        uint256 decimalsMultiplier = 10 ** token.decimals;
-
         // Default parameters
         uint256 ltv = DEFAULT_LTV;
         uint256 liquidationThreshold = DEFAULT_LIQUIDATION_THRESHOLD;
-        uint256 borrowCap = DEFAULT_BORROW_CAP_MULTIPLIER * decimalsMultiplier;
-        uint256 supplyCap = DEFAULT_SUPPLY_CAP_MULTIPLIER * decimalsMultiplier;
+        uint256 borrowCap = DEFAULT_BORROW_CAP;
+        uint256 supplyCap = DEFAULT_SUPPLY_CAP;
 
         // Adjust parameters based on token type
         if (symbolHash == wethHash) {
@@ -84,8 +82,8 @@ library RiskConfig {
         } else if (symbolHash == btcHash) {
             ltv = BTC_LTV;
             liquidationThreshold = BTC_LIQUIDATION_THRESHOLD;
-            borrowCap = BTC_BORROW_CAP_MULTIPLIER * decimalsMultiplier;
-            supplyCap = BTC_SUPPLY_CAP_MULTIPLIER * decimalsMultiplier;
+            borrowCap = BTC_BORROW_CAP;
+            supplyCap = BTC_SUPPLY_CAP;
         } else if (symbolHash == usdcHash || symbolHash == usdtHash || symbolHash == daiHash) {
             // Stablecoins (blue-chip)
             ltv = STABLECOIN_LTV;

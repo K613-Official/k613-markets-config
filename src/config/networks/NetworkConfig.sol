@@ -14,7 +14,6 @@ library NetworkConfig {
         address oracle;
         address aTokenImpl;
         address variableDebtImpl;
-        address stableDebtImpl;
         address treasury;
         address incentivesController;
         address defaultInterestRateStrategy;

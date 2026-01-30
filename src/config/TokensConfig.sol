@@ -41,7 +41,7 @@ library TokensConfig {
 
         // USDC - USD Coin
         tokens[1] = Token({
-            asset: 0x179522635726710d7C8455c2e0A28f16e07E0D53, // USDC Arbitrum Sepolia
+            asset: 0xf3C3351D6Bd0098EEb33ca8f830FAf2a141Ea2E1, // USDC Arbitrum Sepolia
             priceFeed: 0x0153002d20B96532C639313c2d54c3dA09109309, // USDC/USD Sepolia
             decimals: 6,
             symbol: "USDC"
@@ -49,7 +49,7 @@ library TokensConfig {
 
         // USDT - Tether
         tokens[2] = Token({
-            asset: 0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7, // USDT Arbitrum Sepolia
+            asset: 0x30fA2FbE15c1EaDfbEF28C188b7B8dbd3c1Ff2eB, // USDT Arbitrum Sepolia
             priceFeed: 0x80EDee6f667eCc9f63a0a6f55578F870651f06A4, // USDT/USD Sepolia
             decimals: 6,
             symbol: "USDT"

@@ -1,1 +1,0 @@
-forge script script/ConfigureOracles.s.sol --rpc-url $ARBITRUM_SEPOLIA_RPC_URL   --private-key $PRIVATE_KEY   --broadcast   --verify   --slow   -vvvv

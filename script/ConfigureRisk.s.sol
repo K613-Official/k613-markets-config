@@ -5,6 +5,11 @@ import {Script, console} from "forge-std/Script.sol";
 import {RiskUpdatePayload} from "../src/payloads/RiskUpdatePayload.sol";
 import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
+import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
+import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
+import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
+import {IPoolAddressesProvider} from "lib/L2-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
+import {IACLManager} from "lib/L2-Protocol/src/contracts/interfaces/IACLManager.sol";
 
 /// @title ConfigureRisk
 /// @notice Script for final risk parameter configuration
@@ -38,6 +43,19 @@ contract ConfigureRisk is Script {
         // Get tokens to display what will be configured
         // Note: Using ArbitrumSepolia as default - change NETWORK constant in RiskUpdatePayload to switch
         TokensConfig.Network network = TokensConfig.Network.ArbitrumSepolia;
+        NetworkConfig.Addresses memory addrs = _getAddresses(network);
+
+        address provider = addrs.poolAddressesProvider;
+        require(provider != address(0), "POOL_ADDRESSES_PROVIDER=0");
+        address aclManagerAddress = IPoolAddressesProvider(provider).getACLManager();
+        require(aclManagerAddress != address(0), "ACL_MANAGER=0");
+
+        console.log("ACLManager:", aclManagerAddress);
+        IACLManager aclManager = IACLManager(aclManagerAddress);
+        if (!aclManager.isRiskAdmin(address(riskUpdatePayload))) {
+            console.log("Granting RiskAdmin to payload...");
+            aclManager.addRiskAdmin(address(riskUpdatePayload));
+        }
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(network);
         RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(network);
 
@@ -60,6 +78,16 @@ contract ConfigureRisk is Script {
         vm.stopBroadcast();
 
         console.log("RiskUpdatePayload execution complete!");
+    }
+
+    function _getAddresses(TokensConfig.Network network) private pure returns (NetworkConfig.Addresses memory) {
+        if (network == TokensConfig.Network.ArbitrumSepolia) {
+            return ArbitrumSepolia.getAddresses();
+        }
+        if (network == TokensConfig.Network.MonadMainnet) {
+            return MonadMainnet.getAddresses();
+        }
+        revert("Unsupported network");
     }
 }
 
