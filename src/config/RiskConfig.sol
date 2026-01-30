@@ -72,8 +72,9 @@ library RiskConfig {
         // Default parameters
         uint256 ltv = DEFAULT_LTV;
         uint256 liquidationThreshold = DEFAULT_LIQUIDATION_THRESHOLD;
-        uint256 borrowCap = DEFAULT_BORROW_CAP;
-        uint256 supplyCap = DEFAULT_SUPPLY_CAP;
+        uint256 decimalsMultiplier = 10 ** token.decimals;
+        uint256 borrowCap = DEFAULT_BORROW_CAP * decimalsMultiplier;
+        uint256 supplyCap = DEFAULT_SUPPLY_CAP * decimalsMultiplier;
 
         // Adjust parameters based on token type
         if (symbolHash == wethHash) {
@@ -82,8 +83,8 @@ library RiskConfig {
         } else if (symbolHash == btcHash) {
             ltv = BTC_LTV;
             liquidationThreshold = BTC_LIQUIDATION_THRESHOLD;
-            borrowCap = BTC_BORROW_CAP;
-            supplyCap = BTC_SUPPLY_CAP;
+            borrowCap = BTC_BORROW_CAP * decimalsMultiplier;
+            supplyCap = BTC_SUPPLY_CAP * decimalsMultiplier;
         } else if (symbolHash == usdcHash || symbolHash == usdtHash || symbolHash == daiHash) {
             // Stablecoins (blue-chip)
             ltv = STABLECOIN_LTV;

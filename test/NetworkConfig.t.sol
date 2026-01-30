@@ -56,7 +56,7 @@ contract NetworkConfigTest is Test {
             0xBDC2803d37359eC35e01C7995A0e219F19d2abFC,
             "POOL_ADDRESSES_PROVIDER should match"
         );
-        assertEq(ArbitrumSepolia.POOL, 0xf371059c30a2e42b08039f0c22b49846954B76aB, "POOL should match");
+        assertEq(ArbitrumSepolia.POOL, 0xE48f85760112F2106641C1C5Cc840468b98a933D, "POOL should match");
         assertEq(ArbitrumSepolia.ORACLE, 0xB89eC9776F9F16750Dd85A141346924598c4BA4a, "ORACLE should match");
     }
 }
