@@ -18,7 +18,6 @@ contract NetworkConfigTest is Test {
         assertNotEq(addrs.oracle, address(0), "Oracle should be set");
         assertNotEq(addrs.aTokenImpl, address(0), "ATokenImpl should be set");
         assertNotEq(addrs.variableDebtImpl, address(0), "VariableDebtImpl should be set");
-        assertEq(addrs.stableDebtImpl, address(0), "StableDebtImpl should be address(0)");
         assertNotEq(addrs.treasury, address(0), "Treasury should be set");
         assertNotEq(addrs.incentivesController, address(0), "IncentivesController should be set");
         assertNotEq(addrs.defaultInterestRateStrategy, address(0), "DefaultInterestRateStrategy should be set");
@@ -40,7 +39,6 @@ contract NetworkConfigTest is Test {
         assertEq(addrs.oracle, address(0), "Oracle should be placeholder");
         assertEq(addrs.aTokenImpl, address(0), "ATokenImpl should be placeholder");
         assertEq(addrs.variableDebtImpl, address(0), "VariableDebtImpl should be placeholder");
-        assertEq(addrs.stableDebtImpl, address(0), "StableDebtImpl should be placeholder");
         assertEq(addrs.treasury, address(0), "Treasury should be placeholder");
         assertEq(addrs.incentivesController, address(0), "IncentivesController should be placeholder");
         assertEq(addrs.defaultInterestRateStrategy, address(0), "DefaultInterestRateStrategy should be placeholder");
@@ -58,7 +56,7 @@ contract NetworkConfigTest is Test {
             0xBDC2803d37359eC35e01C7995A0e219F19d2abFC,
             "POOL_ADDRESSES_PROVIDER should match"
         );
-        assertEq(ArbitrumSepolia.POOL, 0xf371059c30a2e42b08039f0c22b49846954B76aB, "POOL should match");
+        assertEq(ArbitrumSepolia.POOL, 0xE48f85760112F2106641C1C5Cc840468b98a933D, "POOL should match");
         assertEq(ArbitrumSepolia.ORACLE, 0xB89eC9776F9F16750Dd85A141346924598c4BA4a, "ORACLE should match");
     }
 }

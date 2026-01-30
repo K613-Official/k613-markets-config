@@ -49,17 +49,13 @@ $ anvil
 
 Для деплоя используйте скрипты из директории `script/`.
 
-**Полный автоматический деплой (рекомендуется):**
-```shell
-$ forge script script/FullMarketSetup.s.sol:FullMarketSetup \
-    --rpc-url $RPC_URL \
-    --broadcast \
-    --verify \
-    -vvvv
-```
+
 
 **Пошаговый деплой:**
-1. ConfigureOracles → 2. ListAssets → 3. ConfigureCollateral → 4. ConfigureRisk
+1. ConfigureOracles → 2. InitalReserves → 3. ConfigureCollateral → 4. ConfigureRisk 
+
+forge script script/ConfigureOracles.s.sol --rpc-url $ARBITRUM_SEPOLIA_RPC_URL   --private-key $PRIVATE_KEY   --broadcast   --verify   --slow   -vvvv
+
 
 ⚠️ **Важно**: Перед деплоем настройте переменные окружения:
 - `PRIVATE_KEY` - приватный ключ деплоера (без 0x)

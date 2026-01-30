@@ -20,7 +20,7 @@ contract TokensConfigTest is Test {
         // Check USDC
         assertEq(tokens[1].symbol, "USDC", "Second token should be USDC");
         assertEq(tokens[1].decimals, 6, "USDC should have 6 decimals");
-        assertEq(tokens[1].asset, 0x179522635726710d7C8455c2e0A28f16e07E0D53, "USDC address should match");
+        assertEq(tokens[1].asset, 0xf3C3351D6Bd0098EEb33ca8f830FAf2a141Ea2E1, "USDC address should match");
 
         // Check USDT
         assertEq(tokens[2].symbol, "USDT", "Third token should be USDT");

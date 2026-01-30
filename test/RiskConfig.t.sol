@@ -77,8 +77,8 @@ contract RiskConfigTest is Test {
         );
 
         // BTC should have lower caps
-        uint256 expectedBorrowCap = RiskConfig.BTC_BORROW_CAP_MULTIPLIER * (10 ** tokens[btcIndex].decimals);
-        uint256 expectedSupplyCap = RiskConfig.BTC_SUPPLY_CAP_MULTIPLIER * (10 ** tokens[btcIndex].decimals);
+        uint256 expectedBorrowCap = RiskConfig.BTC_BORROW_CAP * (10 ** tokens[btcIndex].decimals);
+        uint256 expectedSupplyCap = RiskConfig.BTC_SUPPLY_CAP * (10 ** tokens[btcIndex].decimals);
         assertEq(params[btcIndex].borrowCap, expectedBorrowCap, "BTC borrow cap should match");
         assertEq(params[btcIndex].supplyCap, expectedSupplyCap, "BTC supply cap should match");
     }
@@ -143,14 +143,14 @@ contract RiskConfigTest is Test {
 
             if (symbolHash == btcHash) {
                 // BTC has special caps
-                uint256 expectedBorrowCap = RiskConfig.BTC_BORROW_CAP_MULTIPLIER * (10 ** decimals);
-                uint256 expectedSupplyCap = RiskConfig.BTC_SUPPLY_CAP_MULTIPLIER * (10 ** decimals);
+                uint256 expectedBorrowCap = RiskConfig.BTC_BORROW_CAP * (10 ** decimals);
+                uint256 expectedSupplyCap = RiskConfig.BTC_SUPPLY_CAP * (10 ** decimals);
                 assertEq(params[i].borrowCap, expectedBorrowCap, "BTC borrow cap calculation should match");
                 assertEq(params[i].supplyCap, expectedSupplyCap, "BTC supply cap calculation should match");
             } else {
                 // Other tokens use default multipliers
-                uint256 expectedBorrowCap = RiskConfig.DEFAULT_BORROW_CAP_MULTIPLIER * (10 ** decimals);
-                uint256 expectedSupplyCap = RiskConfig.DEFAULT_SUPPLY_CAP_MULTIPLIER * (10 ** decimals);
+                uint256 expectedBorrowCap = RiskConfig.DEFAULT_BORROW_CAP * (10 ** decimals);
+                uint256 expectedSupplyCap = RiskConfig.DEFAULT_SUPPLY_CAP * (10 ** decimals);
                 assertEq(params[i].borrowCap, expectedBorrowCap, "Default borrow cap calculation should match");
                 assertEq(params[i].supplyCap, expectedSupplyCap, "Default supply cap calculation should match");
             }

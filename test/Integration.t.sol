@@ -60,11 +60,6 @@ contract IntegrationTest is Test {
         assertEq(configurator, ArbitrumSepolia.POOL_CONFIGURATOR, "Should return constant value");
     }
 
-    function test_StableDebtIsDisabled() public view {
-        NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
-        assertEq(addrs.stableDebtImpl, address(0), "Stable debt should be disabled (address(0))");
-    }
-
     function test_AllTokensHavePriceFeeds() public {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
 

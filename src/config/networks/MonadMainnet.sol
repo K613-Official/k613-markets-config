@@ -14,7 +14,6 @@ library MonadMainnet {
     address internal constant ORACLE = address(0); // TODO: Set Monad mainnet address
     address internal constant ATOKEN_IMPL = address(0); // TODO: Set Monad mainnet address
     address internal constant VARIABLE_DEBT_IMPL = address(0); // TODO: Set Monad mainnet address
-    address internal constant STABLE_DEBT_IMPL = address(0); // TODO: Set Monad mainnet address if needed
     address internal constant TREASURY = address(0); // TODO: Set Monad mainnet address
     address internal constant INCENTIVES_CONTROLLER = address(0); // TODO: Set Monad mainnet address
     address internal constant DEFAULT_INTEREST_RATE_STRATEGY = address(0); // TODO: Set Monad mainnet address
@@ -27,7 +26,6 @@ library MonadMainnet {
             oracle: ORACLE,
             aTokenImpl: ATOKEN_IMPL,
             variableDebtImpl: VARIABLE_DEBT_IMPL,
-            stableDebtImpl: STABLE_DEBT_IMPL,
             treasury: TREASURY,
             incentivesController: INCENTIVES_CONTROLLER,
             defaultInterestRateStrategy: DEFAULT_INTEREST_RATE_STRATEGY

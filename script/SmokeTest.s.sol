@@ -44,21 +44,15 @@ contract SmokeTest is Script {
 
         pool = IPool(_getPool());
 
-        // Test with WETH (first token)
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
-        require(tokens.length > 0, "No tokens configured");
-
-        address testAsset = tokens[0].asset; // Use first token (WETH)
-        uint8 decimals = tokens[0].decimals;
-
-        uint256 depositAmount = TEST_DEPOSIT_AMOUNT;
-        if (decimals == 6) {
-            depositAmount = 1000 * 10 ** 6; // USDC/USDT
-        } else if (decimals == 8) {
-            depositAmount = 1 * 10 ** 8; // WBTC
+        // Pick first token with non-zero balance
+        (address testAsset, uint256 depositAmount, string memory symbol, bool found) = _selectTestAsset(deployer);
+        if (!found) {
+            console.log("No assets with non-zero balance found. Skipping smoke test.");
+            vm.stopBroadcast();
+            return;
         }
 
-        console.log("Testing with asset:", tokens[0].symbol);
+        console.log("Testing with asset:", symbol);
         console.log("Asset address:", testAsset);
 
         // Test 1: Deposit
@@ -137,6 +131,41 @@ contract SmokeTest is Script {
         uint256 withdrawn = pool.withdraw(asset, amount, user);
         console.log("Withdrew", withdrawn, "tokens");
         console.log("Withdraw successful!");
+    }
+
+    function _selectTestAsset(address user)
+        private
+        view
+        returns (address asset, uint256 depositAmount, string memory symbol, bool found)
+    {
+        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
+        require(tokens.length > 0, "No tokens configured");
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i].asset.code.length == 0) {
+                continue;
+            }
+
+            uint256 balance = IERC20(tokens[i].asset).balanceOf(user);
+            if (balance == 0) {
+                continue;
+            }
+
+            uint256 desired = TEST_DEPOSIT_AMOUNT;
+            if (tokens[i].decimals == 6) {
+                desired = 1000 * 10 ** 6;
+            } else if (tokens[i].decimals == 8) {
+                desired = 1 * 10 ** 8;
+            }
+
+            asset = tokens[i].asset;
+            symbol = tokens[i].symbol;
+            depositAmount = balance < desired ? balance : desired;
+            found = depositAmount > 0;
+            return (asset, depositAmount, symbol, found);
+        }
+
+        return (address(0), 0, "", false);
     }
 
     function _getPool() private pure returns (address) {

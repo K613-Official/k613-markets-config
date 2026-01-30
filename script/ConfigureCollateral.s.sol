@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {Script, console} from "lib/forge-std/src/Script.sol";
 
 import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
+import {IPoolAddressesProvider} from "lib/L2-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
@@ -34,7 +35,27 @@ contract ConfigureCollateral is Script {
 
         // --- load config ---
         NetworkConfig.Addresses memory addrs = _getAddresses();
-        IPoolConfigurator configurator = IPoolConfigurator(NetworkConfig.getPoolConfigurator(addrs));
+        address provider = addrs.poolAddressesProvider;
+        require(provider != address(0), "POOL_ADDRESSES_PROVIDER=0");
+        _requireHasCode(provider, "POOL_ADDRESSES_PROVIDER");
+
+        address pool = IPoolAddressesProvider(provider).getPool();
+        address configuratorFromProvider = IPoolAddressesProvider(provider).getPoolConfigurator();
+        address configuratorAddress = NetworkConfig.getPoolConfigurator(addrs);
+
+        require(pool != address(0), "POOL=0");
+        require(configuratorFromProvider != address(0), "POOL_CONFIGURATOR=0");
+        require(addrs.pool == address(0) || addrs.pool == pool, "POOL_MISMATCH");
+        require(configuratorAddress == configuratorFromProvider, "CONFIGURATOR_MISMATCH");
+
+        _requireHasCode(pool, "POOL");
+        _requireHasCode(configuratorAddress, "POOL_CONFIGURATOR");
+
+        console.log("PoolAddressesProvider:", provider);
+        console.log("Pool:", pool);
+        console.log("PoolConfigurator:", configuratorAddress);
+
+        IPoolConfigurator configurator = IPoolConfigurator(configuratorAddress);
 
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
         RiskConfig.RiskParams[] memory risks = RiskConfig.getRiskParams(NETWORK);
@@ -80,5 +101,9 @@ contract ConfigureCollateral is Script {
             return MonadMainnet.getAddresses();
         }
         revert("Unsupported network");
+    }
+
+    function _requireHasCode(address target, string memory label) private view {
+        require(target.code.length > 0, string.concat(label, " has no code"));
     }
 }

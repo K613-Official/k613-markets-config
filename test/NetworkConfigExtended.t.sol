@@ -50,7 +50,6 @@ contract NetworkConfigExtendedTest is Test {
             oracle: address(0),
             aTokenImpl: address(0),
             variableDebtImpl: address(0),
-            stableDebtImpl: address(0),
             treasury: address(0),
             incentivesController: address(0),
             defaultInterestRateStrategy: address(0)
@@ -70,7 +69,6 @@ contract NetworkConfigExtendedTest is Test {
         assertEq(addrs.oracle, address(0), "Should be placeholder");
         assertEq(addrs.aTokenImpl, address(0), "Should be placeholder");
         assertEq(addrs.variableDebtImpl, address(0), "Should be placeholder");
-        assertEq(addrs.stableDebtImpl, address(0), "Should be placeholder");
         assertEq(addrs.treasury, address(0), "Should be placeholder");
         assertEq(addrs.incentivesController, address(0), "Should be placeholder");
         assertEq(addrs.defaultInterestRateStrategy, address(0), "Should be placeholder");
