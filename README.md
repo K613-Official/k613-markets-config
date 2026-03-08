@@ -1,78 +1,111 @@
-## Foundry
+# Markets Config
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Configuration and deployment scripts for lending markets on top of an **Aave v3–compatible protocol** (L2-Protocol). This repo does not deploy the core protocol—it configures **which assets are listed**, **oracle price feeds**, **collateral parameters** (LTV, liquidation threshold, bonus), and **risk parameters** (borrow/supply caps, reserve factor) for an already-deployed pool.
 
-Foundry consists of:
+![Overview](image/image.png)
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## What This Repo Does
 
-## Documentation
+- **Token config** — Asset addresses and Chainlink (or other) price feeds per network.
+- **Risk config** — LTV, liquidation threshold, liquidation bonus, reserve factor, borrow/supply caps by asset type (WETH, BTC, stablecoins, etc.).
+- **Network config** — Protocol addresses (Pool, PoolConfigurator, Oracle, Treasury, aToken/VariableDebt implementations, interest rate strategy) per chain.
+- **Payloads** — Stateless, execute-once contracts (Aave-style governance payloads) that apply config to the protocol.
+- **Scripts** — Forge scripts to run payloads or configure step-by-step (oracles → init reserves → collateral → risk).
 
-https://book.getfoundry.sh/
+## Supported Networks
 
-## Usage
+| Network           | Status        |
+|------------------|---------------|
+| Arbitrum Sepolia | Configured    |
+| Monad Mainnet    | Placeholders  |
 
-### Build
+## Project Structure
 
-```shell
-$ forge build
+```
+src/
+├── config/           # Static config (tokens, risk, oracles, network addresses)
+│   ├── TokensConfig.sol
+│   ├── RiskConfig.sol
+│   ├── OraclesConfig.sol
+│   └── networks/     # ArbitrumSepolia.sol, MonadMainnet.sol, NetworkConfig.sol
+└── payloads/        # Governance-style payloads (execute once)
+    ├── OracleUpdatePayload.sol
+    ├── ListingPayload.sol       # initReserves
+    ├── CollateralConfigPayload.sol
+    └── RiskUpdatePayload.sol
+
+script/              # Forge deploy/run scripts
+├── ConfigureOracles.s.sol
+├── InitReserves.s.sol
+├── ConfigureCollateral.s.sol
+├── ConfigureRisk.s.sol
+└── FullMarketSetup.s.sol
 ```
 
-### Test
+## Prerequisites
 
-```shell
-$ forge test
+- [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- Deployed L2-Protocol (Aave fork) with your Pool, PoolConfigurator, Oracle, etc.
+- `.env` with at least:
+  - `ARBITRUM_SEPOLIA_RPC_URL` (or your chain RPC)
+  - `PRIVATE_KEY` — deployer key (hex, with or without `0x`)
+
+Optional: `ETHERSCAN_API_KEY` for contract verification.
+
+## Deployment Order
+
+Apply in this order (Aave v3 semantics):
+
+1. **ConfigureOracles** — Set price feed sources on the protocol oracle.
+2. **InitReserves** — Initialize reserves (list assets) in the pool.
+3. **ConfigureCollateral** — Set LTV, liquidation threshold, liquidation bonus; enable borrowing.
+4. **ConfigureRisk** — Set borrow/supply caps and reserve factors.
+
+### Step-by-step (recommended)
+
+```bash
+source .env   # or use foundry's dotenv in foundry.toml
+
+# 1. Oracles
+forge script script/ConfigureOracles.s.sol \
+  --rpc-url $ARBITRUM_SEPOLIA_RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast --slow -vv
+
+# 2. Init reserves (list assets)
+forge script script/InitReserves.s.sol \
+  --rpc-url $ARBITRUM_SEPOLIA_RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast --slow -vv
+
+# 3. Collateral (LTV, LT, LB, borrowing)
+forge script script/ConfigureCollateral.s.sol \
+  --rpc-url $ARBITRUM_SEPOLIA_RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast --slow -vv
+
+# 4. Risk (caps, reserve factor)
+forge script script/ConfigureRisk.s.sol \
+  --rpc-url $ARBITRUM_SEPOLIA_RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast --slow -vv
 ```
 
-### Format
+Omit `--verify` if you are not verifying contracts on a block explorer.
 
-```shell
-$ forge fmt
-```
+### Switching networks
 
-### Gas Snapshots
+Payloads and scripts use a `NETWORK` constant (e.g. `TokensConfig.Network.ArbitrumSepolia`). To target another chain, set the protocol addresses in `src/config/networks/` and change `NETWORK` in the relevant script/payload.
 
-```shell
-$ forge snapshot
-```
+## Commands
 
-### Anvil
+| Command            | Description        |
+|--------------------|--------------------|
+| `forge build`      | Compile contracts  |
+| `forge test`       | Run tests          |
+| `forge fmt`        | Format Solidity    |
+| `forge snapshot`   | Gas snapshots      |
 
-```shell
-$ anvil
-```
+## License
 
-### Deploy
-
-Для деплоя используйте скрипты из директории `script/`.
-
-
-
-**Пошаговый деплой:**
-1. ConfigureOracles → 2. InitalReserves → 3. ConfigureCollateral → 4. ConfigureRisk 
-
-forge script script/ConfigureOracles.s.sol --rpc-url $ARBITRUM_SEPOLIA_RPC_URL   --private-key $PRIVATE_KEY   --broadcast   --verify   --slow   -vvvv
-
-
-⚠️ **Важно**: Перед деплоем настройте переменные окружения:
-- `PRIVATE_KEY` - приватный ключ деплоера (без 0x)
-- `RPC_URL` - RPC URL сети (например, для Arbitrum Sepolia)
-
-📖 **Подробная инструкция**: См. [DEPLOY.md](./DEPLOY.md) для полной документации по деплою.
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+MIT
