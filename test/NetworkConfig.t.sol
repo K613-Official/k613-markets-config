@@ -53,10 +53,10 @@ contract NetworkConfigTest is Test {
     function test_ArbitrumSepoliaConstants() public view {
         assertEq(
             ArbitrumSepolia.POOL_ADDRESSES_PROVIDER,
-            0xBDC2803d37359eC35e01C7995A0e219F19d2abFC,
+            0x20f1827195Bbff32942C43681841d6b2B82651b7,
             "POOL_ADDRESSES_PROVIDER should match"
         );
-        assertEq(ArbitrumSepolia.POOL, 0xE48f85760112F2106641C1C5Cc840468b98a933D, "POOL should match");
-        assertEq(ArbitrumSepolia.ORACLE, 0xB89eC9776F9F16750Dd85A141346924598c4BA4a, "ORACLE should match");
+        assertEq(ArbitrumSepolia.POOL, 0x82879580a7757D08730a3Ad3860a0F7F08895D92, "POOL should match");
+        assertEq(ArbitrumSepolia.ORACLE, 0x4D82d72AF7ee91b5c16cA3A4C85585e9791f9Cc0, "ORACLE should match");
     }
 }

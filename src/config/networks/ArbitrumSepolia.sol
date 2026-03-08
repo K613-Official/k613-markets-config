@@ -7,15 +7,15 @@ import {NetworkConfig} from "./NetworkConfig.sol";
 /// @notice Network configuration for Arbitrum Sepolia testnet
 library ArbitrumSepolia {
     // Individual address constants
-    address internal constant POOL_ADDRESSES_PROVIDER = 0xBDC2803d37359eC35e01C7995A0e219F19d2abFC;
-    address internal constant POOL = 0xE48f85760112F2106641C1C5Cc840468b98a933D;
-    address internal constant POOL_CONFIGURATOR = 0x5560F2766B958C9d3D1293279d3BcAAc9a2C19a8;
-    address internal constant ORACLE = 0xB89eC9776F9F16750Dd85A141346924598c4BA4a;
-    address internal constant ATOKEN_IMPL = 0x8D72EF4AD3fb97F5649Fdd13CFE979934D9C7AFd;
-    address internal constant VARIABLE_DEBT_IMPL = 0xcc54C71aeA32428db93678d3D77671dF3e2dB704;
-    address internal constant TREASURY = 0x33f1721f876A3154A31337c2970364d7285e2caA; // Collector
-    address internal constant INCENTIVES_CONTROLLER = 0x4782272Eb0ab1a835990Cf58d355d5894EB6ff71; // RewardsController
-    address internal constant DEFAULT_INTEREST_RATE_STRATEGY = 0x67E1a57b8fc9A847B4fC442d4fA492Ec3b3c586B;
+    address internal constant POOL_ADDRESSES_PROVIDER = 0x20f1827195Bbff32942C43681841d6b2B82651b7;
+    address internal constant POOL = 0x82879580a7757D08730a3Ad3860a0F7F08895D92;
+    address internal constant POOL_CONFIGURATOR = 0x6e844B6F5345f1eB17129b48323cE426aeB5fdFF; // PoolConfigurator proxy (confirmed)
+    address internal constant ORACLE = 0x4D82d72AF7ee91b5c16cA3A4C85585e9791f9Cc0;
+    address internal constant ATOKEN_IMPL = 0x38A04b3EA118B2458B14a14573897181bb6F99Eb;
+    address internal constant VARIABLE_DEBT_IMPL = 0x388b4F87fD03c3AD76D94e8EddFa96e1631bF2c2;
+    address internal constant TREASURY = 0x4594D2a86Ad17F38AdC26B7E3576dB64485b4469;
+    address internal constant INCENTIVES_CONTROLLER = 0x68884bc5ca880c72C6D7b17b90763e5cA5726f2E;
+    address internal constant DEFAULT_INTEREST_RATE_STRATEGY = 0x6589929D18ee9a072e83e60963DCF32F1621F157;
 
     function getAddresses() internal pure returns (NetworkConfig.Addresses memory) {
         return NetworkConfig.Addresses({
