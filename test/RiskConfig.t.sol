@@ -76,11 +76,9 @@ contract RiskConfigTest is Test {
             "BTC liquidation threshold should match"
         );
 
-        // BTC should have lower caps
-        uint256 expectedBorrowCap = RiskConfig.BTC_BORROW_CAP * (10 ** tokens[btcIndex].decimals);
-        uint256 expectedSupplyCap = RiskConfig.BTC_SUPPLY_CAP * (10 ** tokens[btcIndex].decimals);
-        assertEq(params[btcIndex].borrowCap, expectedBorrowCap, "BTC borrow cap should match");
-        assertEq(params[btcIndex].supplyCap, expectedSupplyCap, "BTC supply cap should match");
+        // BTC should have lower caps (whole tokens; protocol scales by 10^decimals internally)
+        assertEq(params[btcIndex].borrowCap, RiskConfig.BTC_BORROW_CAP, "BTC borrow cap should match");
+        assertEq(params[btcIndex].supplyCap, RiskConfig.BTC_SUPPLY_CAP, "BTC supply cap should match");
     }
 
     function test_StablecoinsHaveCorrectRiskParams() public {
@@ -137,22 +135,21 @@ contract RiskConfigTest is Test {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
         for (uint256 i = 0; i < params.length; i++) {
-            uint8 decimals = tokens[i].decimals;
             bytes32 symbolHash = keccak256(bytes(tokens[i].symbol));
             bytes32 btcHash = keccak256(bytes("BTC"));
 
             if (symbolHash == btcHash) {
-                // BTC has special caps
-                uint256 expectedBorrowCap = RiskConfig.BTC_BORROW_CAP * (10 ** decimals);
-                uint256 expectedSupplyCap = RiskConfig.BTC_SUPPLY_CAP * (10 ** decimals);
-                assertEq(params[i].borrowCap, expectedBorrowCap, "BTC borrow cap calculation should match");
-                assertEq(params[i].supplyCap, expectedSupplyCap, "BTC supply cap calculation should match");
+                // BTC has special caps (whole tokens)
+                assertEq(params[i].borrowCap, RiskConfig.BTC_BORROW_CAP, "BTC borrow cap calculation should match");
+                assertEq(params[i].supplyCap, RiskConfig.BTC_SUPPLY_CAP, "BTC supply cap calculation should match");
             } else {
-                // Other tokens use default multipliers
-                uint256 expectedBorrowCap = RiskConfig.DEFAULT_BORROW_CAP * (10 ** decimals);
-                uint256 expectedSupplyCap = RiskConfig.DEFAULT_SUPPLY_CAP * (10 ** decimals);
-                assertEq(params[i].borrowCap, expectedBorrowCap, "Default borrow cap calculation should match");
-                assertEq(params[i].supplyCap, expectedSupplyCap, "Default supply cap calculation should match");
+                // Other tokens use default caps (whole tokens; protocol scales by 10^decimals internally)
+                assertEq(
+                    params[i].borrowCap, RiskConfig.DEFAULT_BORROW_CAP, "Default borrow cap calculation should match"
+                );
+                assertEq(
+                    params[i].supplyCap, RiskConfig.DEFAULT_SUPPLY_CAP, "Default supply cap calculation should match"
+                );
             }
         }
     }
