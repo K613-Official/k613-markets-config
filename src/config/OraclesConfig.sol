@@ -2,15 +2,15 @@
 pragma solidity ^0.8.30;
 
 import {TokensConfig} from "./TokensConfig.sol";
-import {IAaveOracle} from "lib/L2-Protocol/src/contracts/interfaces/IAaveOracle.sol";
+import {IAaveOracle} from "lib/K613-Protocol/src/contracts/interfaces/IAaveOracle.sol";
 
 /// @title OraclesConfig
-/// @notice Configuration and utilities for Aave v3 Oracle setup
-/// @dev Provides functions to configure price feeds via AaveOracle
+/// @notice Configures and validates `AaveOracle` asset sources from `TokensConfig`.
+/// @dev Uses `IAaveOracle.setAssetSources` and read paths for verification.
 library OraclesConfig {
-    /// @notice Configures oracle price feeds for all tokens
-    /// @param oracle Address of the AaveOracle contract
-    /// @param network The network to configure oracles for
+    /// @notice Registers Chainlink (or custom) feeds for every configured asset.
+    /// @param oracle On-chain `AaveOracle` proxy.
+    /// @param network Deployment whose token list is applied.
     function configureOracles(address oracle, TokensConfig.Network network) internal {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(network);
 
@@ -25,11 +25,11 @@ library OraclesConfig {
         IAaveOracle(oracle).setAssetSources(assets, sources);
     }
 
-    /// @notice Verifies that all oracle prices are set (non-zero)
-    /// @param oracle Address of the AaveOracle contract
-    /// @param network The network to verify oracles for
-    /// @return success True if all prices are valid
-    /// @return invalidAssets Array of assets with invalid prices
+    /// @notice Checks that each configured asset returns a non-zero price from the oracle.
+    /// @param oracle On-chain `AaveOracle` proxy.
+    /// @param network Deployment whose token list is checked.
+    /// @return success True when every price is non-zero and calls succeed.
+    /// @return invalidAssets Subset of assets that failed validation (zero price or revert).
     function verifyOracles(address oracle, TokensConfig.Network network)
         internal
         view
@@ -65,7 +65,10 @@ library OraclesConfig {
         }
     }
 
-    /// @notice Gets the price feed source for an asset
+    /// @notice Reads the registered feed address for an asset.
+    /// @param oracle On-chain `AaveOracle` proxy.
+    /// @param asset Underlying asset to query.
+    /// @return source Aggregator or adapter registered for `asset`.
     function getPriceFeedSource(address oracle, address asset) internal view returns (address source) {
         return IAaveOracle(oracle).getSourceOfAsset(asset);
     }

@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 import {Test, console} from "forge-std/Test.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {RiskConfig} from "../src/config/RiskConfig.sol";
-import {OraclesConfig} from "../src/config/OraclesConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
@@ -27,29 +26,31 @@ contract IntegrationTest is Test {
         NetworkConfig.Addresses memory arbitrumAddrs = ArbitrumSepolia.getAddresses();
         NetworkConfig.Addresses memory monadAddrs = MonadMainnet.getAddresses();
 
-        // Arbitrum should have all addresses set
         assertNotEq(arbitrumAddrs.pool, address(0), "Arbitrum pool should be set");
         assertNotEq(arbitrumAddrs.oracle, address(0), "Arbitrum oracle should be set");
 
-        // Monad should have placeholder addresses
-        assertEq(monadAddrs.pool, address(0), "Monad pool should be placeholder");
-        assertEq(monadAddrs.oracle, address(0), "Monad oracle should be placeholder");
+        assertNotEq(monadAddrs.pool, address(0), "Monad pool should be set");
+        assertNotEq(monadAddrs.oracle, address(0), "Monad oracle should be set");
     }
 
-    function test_AllNetworksReturnSameTokenCount() public {
-        uint256 arbitrumCount = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia).length;
-        uint256 monadCount = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet).length;
+    function test_EachNetworkTokenAndRiskCountsMatch() public pure {
+        TokensConfig.Token[] memory arbitrumTokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory monadTokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
+        RiskConfig.RiskParams[] memory arbitrumParams = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+        RiskConfig.RiskParams[] memory monadParams = RiskConfig.getRiskParams(TokensConfig.Network.MonadMainnet);
 
-        assertEq(arbitrumCount, monadCount, "Both networks should have same number of tokens");
-        assertEq(arbitrumCount, 5, "Should have 5 tokens");
+        assertEq(arbitrumTokens.length, 5);
+        assertEq(monadTokens.length, 11);
+        assertEq(arbitrumParams.length, arbitrumTokens.length);
+        assertEq(monadParams.length, monadTokens.length);
     }
 
     function test_RiskParamsForBothNetworks() public {
         RiskConfig.RiskParams[] memory arbitrumParams = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
         RiskConfig.RiskParams[] memory monadParams = RiskConfig.getRiskParams(TokensConfig.Network.MonadMainnet);
 
-        assertEq(arbitrumParams.length, monadParams.length, "Both networks should have same number of risk params");
-        assertEq(arbitrumParams.length, 5, "Should have 5 risk params");
+        assertEq(arbitrumParams.length, 5);
+        assertEq(monadParams.length, 11);
     }
 
     function test_PoolConfiguratorRetrieval() public view {

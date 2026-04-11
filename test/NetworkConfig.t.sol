@@ -32,16 +32,15 @@ contract NetworkConfigTest is Test {
     function test_MonadMainnetAddresses() public {
         NetworkConfig.Addresses memory addrs = MonadMainnet.getAddresses();
 
-        // All addresses should be placeholders (address(0)) for now
-        assertEq(addrs.poolAddressesProvider, address(0), "PoolAddressesProvider should be placeholder");
-        assertEq(addrs.pool, address(0), "Pool should be placeholder");
-        assertEq(addrs.poolConfigurator, address(0), "PoolConfigurator should be placeholder");
-        assertEq(addrs.oracle, address(0), "Oracle should be placeholder");
-        assertEq(addrs.aTokenImpl, address(0), "ATokenImpl should be placeholder");
-        assertEq(addrs.variableDebtImpl, address(0), "VariableDebtImpl should be placeholder");
-        assertEq(addrs.treasury, address(0), "Treasury should be placeholder");
-        assertEq(addrs.incentivesController, address(0), "IncentivesController should be placeholder");
-        assertEq(addrs.defaultInterestRateStrategy, address(0), "DefaultInterestRateStrategy should be placeholder");
+        assertNotEq(addrs.poolAddressesProvider, address(0), "PoolAddressesProvider should be set");
+        assertNotEq(addrs.pool, address(0), "Pool should be set");
+        assertNotEq(addrs.poolConfigurator, address(0), "PoolConfigurator should be set");
+        assertNotEq(addrs.oracle, address(0), "Oracle should be set");
+        assertNotEq(addrs.aTokenImpl, address(0), "ATokenImpl should be set");
+        assertNotEq(addrs.variableDebtImpl, address(0), "VariableDebtImpl should be set");
+        assertNotEq(addrs.treasury, address(0), "Treasury should be set");
+        assertNotEq(addrs.incentivesController, address(0), "IncentivesController should be set");
+        assertNotEq(addrs.defaultInterestRateStrategy, address(0), "DefaultInterestRateStrategy should be set");
     }
 
     function test_NetworkConfigGetPoolConfigurator() public view {

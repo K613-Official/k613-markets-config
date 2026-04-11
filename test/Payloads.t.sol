@@ -6,13 +6,10 @@ import {ListingPayload} from "../src/payloads/ListingPayload.sol";
 import {CollateralConfigPayload} from "../src/payloads/CollateralConfigPayload.sol";
 import {OracleUpdatePayload} from "../src/payloads/OracleUpdatePayload.sol";
 import {RiskUpdatePayload} from "../src/payloads/RiskUpdatePayload.sol";
-import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
+import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
 import {
     ConfiguratorInputTypes
-} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
-import {TokensConfig} from "../src/config/TokensConfig.sol";
-import {RiskConfig} from "../src/config/RiskConfig.sol";
-import {OraclesConfig} from "../src/config/OraclesConfig.sol";
+} from "lib/K613-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 
 /// @title MockPoolConfigurator
@@ -64,10 +61,12 @@ contract MockPoolConfigurator {
 /// @title MockAaveOracleForPayloads
 /// @notice Mock oracle for payload testing
 contract MockAaveOracleForPayloads {
+    error ArrayLengthMismatch();
+
     mapping(address => address) public sources;
 
     function setAssetSources(address[] calldata assets, address[] calldata _sources) external {
-        require(assets.length == _sources.length, "Length mismatch");
+        if (assets.length != _sources.length) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < assets.length; i++) {
             sources[assets[i]] = _sources[i];
         }

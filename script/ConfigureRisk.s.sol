@@ -8,12 +8,15 @@ import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
-import {IPoolAddressesProvider} from "lib/L2-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
-import {IACLManager} from "lib/L2-Protocol/src/contracts/interfaces/IACLManager.sol";
+import {IPoolAddressesProvider} from "lib/K613-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
+import {IACLManager} from "lib/K613-Protocol/src/contracts/interfaces/IACLManager.sol";
 
 /// @title ConfigureRisk
 /// @notice Script for final risk parameter configuration
 contract ConfigureRisk is Script {
+    error ZeroPoolAddressesProvider();
+    error ZeroAclManager();
+
     function run() external {
         // Try to get private key from env, fallback to broadcast() if not set
         address deployer;
@@ -42,13 +45,13 @@ contract ConfigureRisk is Script {
 
         // Get tokens to display what will be configured
         // Note: Using ArbitrumSepolia as default - change NETWORK constant in RiskUpdatePayload to switch
-        TokensConfig.Network network = TokensConfig.Network.ArbitrumSepolia;
+        TokensConfig.Network network = TokensConfig.Network.MonadMainnet;
         NetworkConfig.Addresses memory addrs = _getAddresses(network);
 
         address provider = addrs.poolAddressesProvider;
-        require(provider != address(0), "POOL_ADDRESSES_PROVIDER=0");
+        if (provider == address(0)) revert ZeroPoolAddressesProvider();
         address aclManagerAddress = IPoolAddressesProvider(provider).getACLManager();
-        require(aclManagerAddress != address(0), "ACL_MANAGER=0");
+        if (aclManagerAddress == address(0)) revert ZeroAclManager();
 
         console.log("ACLManager:", aclManagerAddress);
         IACLManager aclManager = IACLManager(aclManagerAddress);

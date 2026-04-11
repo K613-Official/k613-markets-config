@@ -8,10 +8,10 @@ import {OracleUpdatePayload} from "../src/payloads/OracleUpdatePayload.sol";
 import {RiskUpdatePayload} from "../src/payloads/RiskUpdatePayload.sol";
 import {
     IDefaultInterestRateStrategyV2
-} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+} from "lib/K613-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
 import {
     ConfiguratorInputTypes
-} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
+} from "lib/K613-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
@@ -99,21 +99,30 @@ contract PayloadsInternalTest is Test {
         }
     }
 
-    function test_PayloadsNetworkConsistency() public view {
-        // Test that payloads can work with both networks
+    function test_PayloadsNetworkConsistency() public pure {
         TokensConfig.Token[] memory arbitrumTokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
         TokensConfig.Token[] memory monadTokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
+        RiskConfig.RiskParams[] memory arbitrumParams = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+        RiskConfig.RiskParams[] memory monadParams = RiskConfig.getRiskParams(TokensConfig.Network.MonadMainnet);
 
-        // Both should return same number of tokens
-        assertEq(arbitrumTokens.length, monadTokens.length, "Both networks should have same token count");
+        assertEq(arbitrumTokens.length, 5);
+        assertEq(monadTokens.length, 11);
+        assertEq(arbitrumParams.length, arbitrumTokens.length);
+        assertEq(monadParams.length, monadTokens.length);
 
-        // Symbols should match
         for (uint256 i = 0; i < arbitrumTokens.length; i++) {
-            assertEq(
-                keccak256(bytes(arbitrumTokens[i].symbol)),
-                keccak256(bytes(monadTokens[i].symbol)),
-                "Symbols should match between networks"
-            );
+            bytes32 sym = keccak256(bytes(arbitrumTokens[i].symbol));
+            for (uint256 j = 0; j < monadTokens.length; j++) {
+                if (keccak256(bytes(monadTokens[j].symbol)) != sym) {
+                    continue;
+                }
+                assertEq(arbitrumTokens[i].decimals, monadTokens[j].decimals);
+                assertEq(arbitrumParams[i].ltv, monadParams[j].ltv);
+                assertEq(arbitrumParams[i].liquidationThreshold, monadParams[j].liquidationThreshold);
+                assertEq(arbitrumParams[i].liquidationBonus, monadParams[j].liquidationBonus);
+                assertEq(arbitrumParams[i].reserveFactor, monadParams[j].reserveFactor);
+                break;
+            }
         }
     }
 

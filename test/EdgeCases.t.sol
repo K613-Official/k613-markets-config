@@ -9,11 +9,13 @@ import {OraclesConfig} from "../src/config/OraclesConfig.sol";
 /// @title MockOracleEdgeCases
 /// @notice Mock oracle for edge case testing
 contract MockOracleEdgeCases {
+    error ArrayLengthMismatch();
+
     mapping(address => address) public sources;
     mapping(address => uint256) public prices;
 
     function setAssetSources(address[] calldata assets, address[] calldata _sources) external {
-        require(assets.length == _sources.length, "Length mismatch");
+        if (assets.length != _sources.length) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < assets.length; i++) {
             sources[assets[i]] = _sources[i];
         }
@@ -121,12 +123,12 @@ contract EdgeCasesTest is Test {
         }
     }
 
-    function test_MonadMainnetTokensHavePlaceholders() public {
+    function test_MonadMainnetTokensHaveDeployedAddresses() public {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
 
         for (uint256 i = 0; i < tokens.length; i++) {
-            assertEq(tokens[i].asset, address(0), "Mainnet tokens should have placeholder addresses");
-            assertEq(tokens[i].priceFeed, address(0), "Mainnet price feeds should be placeholders");
+            assertNotEq(tokens[i].asset, address(0), "Mainnet token asset should be set");
+            assertNotEq(tokens[i].priceFeed, address(0), "Mainnet price feed should be set");
         }
     }
 }

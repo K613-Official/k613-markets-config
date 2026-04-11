@@ -28,6 +28,7 @@ src/
 │   ├── RiskConfig.sol
 │   ├── OraclesConfig.sol
 │   └── networks/     # ArbitrumSepolia.sol, MonadMainnet.sol, NetworkConfig.sol
+├── incentives/       # StaticRewardPriceFeed for EmissionManager UI oracle check
 └── payloads/        # Governance-style payloads (execute once)
     ├── OracleUpdatePayload.sol
     ├── ListingPayload.sol       # initReserves
@@ -39,6 +40,7 @@ script/              # Forge deploy/run scripts
 ├── InitReserves.s.sol
 ├── ConfigureCollateral.s.sol
 ├── ConfigureRisk.s.sol
+├── ConfigureSupplyIncentives.s.sol
 └── FullMarketSetup.s.sol
 ```
 
@@ -60,6 +62,7 @@ Apply in this order (Aave v3 semantics):
 2. **InitReserves** — Initialize reserves (list assets) in the pool.
 3. **ConfigureCollateral** — Set LTV, liquidation threshold, liquidation bonus; enable borrowing.
 4. **ConfigureRisk** — Set borrow/supply caps and reserve factors.
+5. **ConfigureSupplyIncentives** (optional) — Supply-side liquidity mining: deploy a static reward price feed and `PullRewardsTransferStrategy`, then call `EmissionManager.configureAssets` so suppliers of the chosen reserve earn your ERC20 reward token.
 
 ### Step-by-step (recommended)
 
@@ -86,6 +89,24 @@ forge script script/ConfigureCollateral.s.sol \
 
 # 4. Risk (caps, reserve factor)
 forge script script/ConfigureRisk.s.sol \
+  --rpc-url $ARBITRUM_SEPOLIA_RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast --slow -vv
+```
+
+### Supply incentives (your reward token)
+
+Prerequisites: steps 1–4 done for the reserve; a multisig or EOA **`INCENTIVES_REWARDS_VAULT`** holds enough reward tokens and will **`approve`** the deployed `PullRewardsTransferStrategy` for `type(uint256).max` (script logs the strategy address). **`INCENTIVES_EMISSION_PER_SECOND`** is in the reward token’s smallest units (per second). If you are not `EmissionManager`’s owner, the owner must call `setEmissionAdmin(rewardToken, yourAdmin)` before you run the script.
+
+```bash
+export INCENTIVES_REWARD_TOKEN=       # your ERC20 (e.g. xK613)
+export INCENTIVES_REWARDS_VAULT=    # funds rewards; must approve strategy after deploy
+export INCENTIVES_RESERVE_UNDERLYING= # underlying of the reserve (pool resolves aToken)
+export INCENTIVES_EMISSION_PER_SECOND=   # uint, <= uint88 max, wei of reward per second
+export INCENTIVES_DISTRIBUTION_END=      # unix timestamp (uint32), must be in the future
+# optional: INCENTIVES_REWARD_ORACLE_ANSWER (default 100000000), INCENTIVES_REWARD_ORACLE_DECIMALS (default 8)
+
+forge script script/ConfigureSupplyIncentives.s.sol \
   --rpc-url $ARBITRUM_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast --slow -vv

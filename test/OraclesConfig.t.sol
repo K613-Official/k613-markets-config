@@ -8,11 +8,13 @@ import {TokensConfig} from "../src/config/TokensConfig.sol";
 /// @title MockAaveOracle
 /// @notice Mock oracle for testing
 contract MockAaveOracle {
+    error ArrayLengthMismatch();
+
     mapping(address => address) public sources;
     mapping(address => uint256) public prices;
 
     function setAssetSources(address[] calldata assets, address[] calldata _sources) external {
-        require(assets.length == _sources.length, "Length mismatch");
+        if (assets.length != _sources.length) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < assets.length; i++) {
             sources[assets[i]] = _sources[i];
             // Set a mock price
