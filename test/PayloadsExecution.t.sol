@@ -8,10 +8,10 @@ import {OracleUpdatePayload} from "../src/payloads/OracleUpdatePayload.sol";
 import {RiskUpdatePayload} from "../src/payloads/RiskUpdatePayload.sol";
 import {
     IDefaultInterestRateStrategyV2
-} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+} from "lib/K613-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
 import {
     ConfiguratorInputTypes
-} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
+} from "lib/K613-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
@@ -142,15 +142,11 @@ contract PayloadsExecutionTest is Test {
     }
 
     function test_PayloadsNetworkSwitching() public view {
-        // Test that payloads can work with both networks
         NetworkConfig.Addresses memory arbitrumAddrs = ArbitrumSepolia.getAddresses();
         NetworkConfig.Addresses memory monadAddrs = MonadMainnet.getAddresses();
 
-        // Arbitrum should have real addresses
         assertNotEq(arbitrumAddrs.pool, address(0), "Arbitrum pool should be set");
-
-        // Monad should have placeholders (for now)
-        assertEq(monadAddrs.pool, address(0), "Monad pool should be placeholder");
+        assertNotEq(monadAddrs.pool, address(0), "Monad pool should be set");
     }
 
     function test_ListingPayloadTokenNamesFormat() public view {

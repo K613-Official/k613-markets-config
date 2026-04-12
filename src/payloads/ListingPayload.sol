@@ -1,34 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
+import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
 import {
     IDefaultInterestRateStrategyV2
-} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+} from "lib/K613-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
 import {
     ConfiguratorInputTypes
-} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
+} from "lib/K613-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../config/TokensConfig.sol";
 import {NetworkConfig} from "../config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../config/networks/MonadMainnet.sol";
 
 /// @title ListingPayload
-/// @notice Aave-style payload to list assets (initReserves ONLY)
-/// @dev Stateless, execute-only governance payload
-/// @dev This payload ONLY initializes reserves. Use CollateralConfigPayload and RiskUpdatePayload for other configurations.
-/// @dev Set NETWORK constant to switch between networks
+/// @notice Governance payload that lists reserves via `initReserves` only.
+/// @dev Stateless, execute-only. Use `CollateralConfigPayload` and `RiskUpdatePayload` for further steps.
+/// @dev Switch `NETWORK` to target another deployment.
 contract ListingPayload {
-    // Change this constant to switch networks
-    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.ArbitrumSepolia;
+    /// @notice Active deployment for this payload bytecode.
+    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
+    /// @notice Initializes all configured reserves with per-asset interest-rate data.
     function execute() external {
         NetworkConfig.Addresses memory addrs = _getAddresses();
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
 
         ConfiguratorInputTypes.InitReserveInput[] memory inputs =
             new ConfiguratorInputTypes.InitReserveInput[](tokens.length);
-        bytes memory interestRateData = _defaultInterestRateData();
 
         for (uint256 i = 0; i < tokens.length; i++) {
             TokensConfig.Token memory t = tokens[i];
@@ -46,7 +45,7 @@ contract ListingPayload {
                 variableDebtTokenName: string.concat("Aave Variable Debt ", t.symbol),
                 variableDebtTokenSymbol: string.concat("variableDebt", t.symbol),
                 params: "",
-                interestRateData: interestRateData
+                interestRateData: _getInterestRateData(t.symbol)
             });
         }
 
@@ -54,7 +53,9 @@ contract ListingPayload {
         configurator.initReserves(inputs);
     }
 
-    function _getAddresses() private pure returns (NetworkConfig.Addresses memory) {
+    /// @notice Resolves `NetworkConfig.Addresses` for `NETWORK`.
+    /// @return addrs Addresses used for reserve initialization.
+    function _getAddresses() private pure returns (NetworkConfig.Addresses memory addrs) {
         if (NETWORK == TokensConfig.Network.ArbitrumSepolia) {
             return ArbitrumSepolia.getAddresses();
         } else if (NETWORK == TokensConfig.Network.MonadMainnet) {
@@ -64,13 +65,56 @@ contract ListingPayload {
         }
     }
 
-    function _defaultInterestRateData() private pure returns (bytes memory) {
+    /// @notice Keccak256 over the UTF-8 bytes of a string.
+    function _hashString(string memory str) private pure returns (bytes32 hash) {
+        assembly {
+            hash := keccak256(add(str, 0x20), mload(str))
+        }
+    }
+
+    /// @notice Returns per-asset interest rate data based on asset class.
+    /// @param symbol Token symbol used to determine asset class.
+    /// @return data ABI-encoded `InterestRateData`.
+    function _getInterestRateData(string memory symbol) private pure returns (bytes memory data) {
+        bytes32 h = _hashString(symbol);
+
+        // Stablecoins: high optimal usage, low slopes
+        if (
+            h == _hashString("USDC") || h == _hashString("AUSD") || h == _hashString("USDT0")
+                || h == _hashString("WSRUSD") || h == _hashString("USDT") || h == _hashString("DAI")
+        ) {
+            return abi.encode(
+                IDefaultInterestRateStrategyV2.InterestRateData({
+                    optimalUsageRatio: 90_00,
+                    baseVariableBorrowRate: 0,
+                    variableRateSlope1: 5_00,
+                    variableRateSlope2: 60_00
+                })
+            );
+        }
+
+        // Blue-chip volatile (ETH, BTC)
+        if (
+            h == _hashString("WETH") || h == _hashString("wstETH") || h == _hashString("WBTC")
+                || h == _hashString("BTC")
+        ) {
+            return abi.encode(
+                IDefaultInterestRateStrategyV2.InterestRateData({
+                    optimalUsageRatio: 80_00,
+                    baseVariableBorrowRate: 0,
+                    variableRateSlope1: 3_50,
+                    variableRateSlope2: 80_00
+                })
+            );
+        }
+
+        // MON derivatives — lower optimal usage, steeper slope2
         return abi.encode(
             IDefaultInterestRateStrategyV2.InterestRateData({
-                optimalUsageRatio: 80_00,
-                baseVariableBorrowRate: 10_00,
-                variableRateSlope1: 4_00,
-                variableRateSlope2: 60_00
+                optimalUsageRatio: 45_00,
+                baseVariableBorrowRate: 0,
+                variableRateSlope1: 7_00,
+                variableRateSlope2: 300_00
             })
         );
     }

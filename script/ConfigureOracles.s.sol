@@ -5,12 +5,13 @@ import {Script, console} from "forge-std/Script.sol";
 import {OraclesConfig} from "../src/config/OraclesConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
+import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 
 /// @title ConfigureOracles
 /// @notice Script to configure Chainlink price feeds via AaveOracle
 contract ConfigureOracles is Script {
     // Change this constant to switch networks
-    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.ArbitrumSepolia;
+    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
     function run() external {
         // Try to get private key from env, fallback to broadcast() if not set
@@ -63,6 +64,8 @@ contract ConfigureOracles is Script {
     function _getOracle() private pure returns (address) {
         if (NETWORK == TokensConfig.Network.ArbitrumSepolia) {
             return ArbitrumSepolia.ORACLE;
+        } else if (NETWORK == TokensConfig.Network.MonadMainnet) {
+            return MonadMainnet.ORACLE;
         } else {
             revert("Unsupported network");
         }

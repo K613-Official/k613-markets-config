@@ -4,20 +4,21 @@ pragma solidity ^0.8.30;
 import {NetworkConfig} from "./NetworkConfig.sol";
 
 /// @title MonadMainnet
-/// @notice Network configuration for Monad Mainnet
-/// @dev TODO: Fill in mainnet addresses when deploying to mainnet
+/// @notice Canonical addresses for the Monad mainnet deployment.
 library MonadMainnet {
     // Individual address constants
-    address internal constant POOL_ADDRESSES_PROVIDER = address(0); // TODO: Set Monad mainnet address
-    address internal constant POOL = address(0); // TODO: Set Monad mainnet address
-    address internal constant POOL_CONFIGURATOR = address(0); // TODO: Set Monad mainnet address
-    address internal constant ORACLE = address(0); // TODO: Set Monad mainnet address
-    address internal constant ATOKEN_IMPL = address(0); // TODO: Set Monad mainnet address
-    address internal constant VARIABLE_DEBT_IMPL = address(0); // TODO: Set Monad mainnet address
-    address internal constant TREASURY = address(0); // TODO: Set Monad mainnet address
-    address internal constant INCENTIVES_CONTROLLER = address(0); // TODO: Set Monad mainnet address
-    address internal constant DEFAULT_INTEREST_RATE_STRATEGY = address(0); // TODO: Set Monad mainnet address
+    address internal constant POOL_ADDRESSES_PROVIDER = 0x1f6E754C6F7A49e2d69e5341d65EcB8f8506C69c;
+    address internal constant POOL = 0x4Ba3856a4d851d39C27e2E866daB7A95eF6e0113;
+    address internal constant POOL_CONFIGURATOR = 0x3F16A467c3fC589fB96864196047F2f417CAc28F;
+    address internal constant ORACLE = 0x0dFfb00A751a74ac8CF8B022Bf86b1ECd9D7ae6F;
+    address internal constant ATOKEN_IMPL = 0xDe57e04622877525482BefC9301728e0ED57f677;
+    address internal constant VARIABLE_DEBT_IMPL = 0xF8C5a1F25a6e1910E443edC2fC71b7B6cC4248Fb;
+    address internal constant TREASURY = 0x628CddC70789c4Ea843dc9dc2f84C16e2580D2e6;
+    address internal constant INCENTIVES_CONTROLLER = 0x4daF0EfC0E149B13b6c115916d643524E279DDEa;
+    address internal constant DEFAULT_INTEREST_RATE_STRATEGY = 0xDA36b4904Ed53f19a7E1995c718f7149580D0f65;
 
+    /// @notice Returns the full address bundle for this network.
+    /// @return Structured addresses for scripts and payloads.
     function getAddresses() internal pure returns (NetworkConfig.Addresses memory) {
         return NetworkConfig.Addresses({
             poolAddressesProvider: POOL_ADDRESSES_PROVIDER,
@@ -32,6 +33,8 @@ library MonadMainnet {
         });
     }
 
+    /// @notice Convenience accessor for the pool configurator on this chain.
+    /// @return Configurator address (explicit or from provider).
     function getPoolConfigurator() internal view returns (address) {
         return NetworkConfig.getPoolConfigurator(getAddresses());
     }

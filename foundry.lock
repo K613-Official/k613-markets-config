@@ -1,6 +1,6 @@
 {
-  "lib/L2-Protocol": {
-    "rev": "e264f8f1ebf49cdd7d7a7ca386c65ccd59ad9101"
+  "lib/K613-Protocol": {
+    "rev": "7974591806e1b6c760a83a7c18f6724ed8964f44"
   },
   "lib/forge-std": {
     "tag": {

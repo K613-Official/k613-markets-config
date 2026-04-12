@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
+import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
 import {TokensConfig} from "../config/TokensConfig.sol";
 import {RiskConfig} from "../config/RiskConfig.sol";
 import {NetworkConfig} from "../config/networks/NetworkConfig.sol";
@@ -9,21 +9,23 @@ import {ArbitrumSepolia} from "../config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../config/networks/MonadMainnet.sol";
 
 /// @title CollateralConfigPayload
-/// @notice Aave-style payload to configure collateral parameters (LTV, LT, LB) and enable borrowing
-/// @dev Stateless, execute-only governance payload
-/// @dev This payload configures collateral settings and enables borrowing. Must be executed after ListingPayload.
-/// @dev Set NETWORK constant to switch between networks
+/// @notice Configures collateral parameters (LTV, liquidation threshold, bonus) and enables borrowing.
+/// @dev Stateless, execute-only. Run after `ListingPayload` has initialized reserves.
+/// @dev Switch `NETWORK` to target another deployment.
 contract CollateralConfigPayload {
-    // Change this constant to switch networks
-    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.ArbitrumSepolia;
+    error RiskParamsLengthMismatch();
 
+    /// @notice Active deployment for this payload bytecode.
+    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
+
+    /// @notice Applies risk-derived collateral settings and turns on variable-rate borrowing.
     function execute() external {
         NetworkConfig.Addresses memory addrs = _getAddresses();
         IPoolConfigurator configurator = IPoolConfigurator(NetworkConfig.getPoolConfigurator(addrs));
 
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
         RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(NETWORK);
-        require(riskParams.length == tokens.length, "Risk params length mismatch");
+        if (riskParams.length != tokens.length) revert RiskParamsLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length; i++) {
             RiskConfig.RiskParams memory risk = riskParams[i];
@@ -38,7 +40,9 @@ contract CollateralConfigPayload {
         }
     }
 
-    function _getAddresses() private pure returns (NetworkConfig.Addresses memory) {
+    /// @notice Resolves `NetworkConfig.Addresses` for `NETWORK`.
+    /// @return addrs Addresses used for configuration calls.
+    function _getAddresses() private pure returns (NetworkConfig.Addresses memory addrs) {
         if (NETWORK == TokensConfig.Network.ArbitrumSepolia) {
             return ArbitrumSepolia.getAddresses();
         } else if (NETWORK == TokensConfig.Network.MonadMainnet) {

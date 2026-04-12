@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
+import {RiskConfig} from "../src/config/RiskConfig.sol";
 
 /// @title TokensConfigExtendedTest
 /// @notice Extended tests to improve branch coverage
@@ -14,9 +15,8 @@ contract TokensConfigExtendedTest is Test {
     }
 
     function test_TokensConfigMonadMainnetBranch() public view {
-        // Test MonadMainnet branch
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
-        assertEq(tokens.length, 5, "MonadMainnet should return 5 tokens");
+        assertEq(tokens.length, 11, "MonadMainnet should return 11 tokens");
     }
 
     function test_ArbitrumSepoliaTokensHaveCorrectStructure() public {
@@ -31,17 +31,16 @@ contract TokensConfigExtendedTest is Test {
         }
     }
 
-    function test_MonadMainnetTokensHavePlaceholderStructure() public {
+    function test_MonadMainnetTokensHaveDeployedStructure() public {
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
 
-        // Verify all tokens have placeholder structure (5 tokens with zero addresses)
-        assertEq(tokens.length, 5, "MonadMainnet should return 5 placeholder tokens");
+        assertEq(tokens.length, 11);
 
         for (uint256 i = 0; i < tokens.length; i++) {
-            assertEq(tokens[i].asset, address(0), "Asset should be placeholder");
-            assertEq(tokens[i].priceFeed, address(0), "Price feed should be placeholder");
-            assertGt(tokens[i].decimals, 0, "Decimals should still be set");
-            assertGt(bytes(tokens[i].symbol).length, 0, "Symbol should still be set");
+            assertNotEq(tokens[i].asset, address(0), "Asset should be set");
+            assertNotEq(tokens[i].priceFeed, address(0), "Price feed should be set");
+            assertGt(tokens[i].decimals, 0, "Decimals should be set");
+            assertGt(bytes(tokens[i].symbol).length, 0, "Symbol should be set");
         }
     }
 
@@ -73,19 +72,28 @@ contract TokensConfigExtendedTest is Test {
         }
     }
 
-    function test_BothNetworksReturnSameSymbols() public {
+    function test_SharedSymbolsMatchAcrossNetworks() public pure {
         TokensConfig.Token[] memory arbitrumTokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
         TokensConfig.Token[] memory monadTokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
+        RiskConfig.RiskParams[] memory arbitrumParams = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+        RiskConfig.RiskParams[] memory monadParams = RiskConfig.getRiskParams(TokensConfig.Network.MonadMainnet);
 
-        assertEq(arbitrumTokens.length, monadTokens.length, "Both networks should have same token count");
+        assertEq(arbitrumTokens.length, 5);
+        assertEq(monadTokens.length, 11);
 
         for (uint256 i = 0; i < arbitrumTokens.length; i++) {
-            assertEq(
-                keccak256(bytes(arbitrumTokens[i].symbol)),
-                keccak256(bytes(monadTokens[i].symbol)),
-                "Symbols should match between networks"
-            );
-            assertEq(arbitrumTokens[i].decimals, monadTokens[i].decimals, "Decimals should match between networks");
+            bytes32 sym = keccak256(bytes(arbitrumTokens[i].symbol));
+            for (uint256 j = 0; j < monadTokens.length; j++) {
+                if (keccak256(bytes(monadTokens[j].symbol)) != sym) {
+                    continue;
+                }
+                assertEq(arbitrumTokens[i].decimals, monadTokens[j].decimals);
+                assertEq(arbitrumParams[i].ltv, monadParams[j].ltv);
+                assertEq(arbitrumParams[i].liquidationThreshold, monadParams[j].liquidationThreshold);
+                assertEq(arbitrumParams[i].liquidationBonus, monadParams[j].liquidationBonus);
+                assertEq(arbitrumParams[i].reserveFactor, monadParams[j].reserveFactor);
+                break;
+            }
         }
     }
 }

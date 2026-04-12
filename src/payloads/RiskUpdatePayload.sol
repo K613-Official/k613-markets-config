@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
+import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
 import {RiskConfig} from "../config/RiskConfig.sol";
 import {TokensConfig} from "../config/TokensConfig.sol";
 import {NetworkConfig} from "../config/networks/NetworkConfig.sol";
@@ -9,13 +9,13 @@ import {ArbitrumSepolia} from "../config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../config/networks/MonadMainnet.sol";
 
 /// @title RiskUpdatePayload
-/// @notice Updates borrow/supply caps and reserve factors
-/// @dev Aave-style stateless governance payload
-/// @dev Set NETWORK constant to switch between networks
+/// @notice Updates borrow caps, supply caps, and reserve factors from `RiskConfig`.
+/// @dev Stateless governance payload; switch `NETWORK` for other deployments.
 contract RiskUpdatePayload {
-    // Change this constant to switch networks
-    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.ArbitrumSepolia;
+    /// @notice Active deployment for this payload bytecode.
+    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
+    /// @notice Applies caps and reserve factor per asset on the configured network.
     function execute() external {
         NetworkConfig.Addresses memory addrs = _getAddresses();
         IPoolConfigurator configurator = IPoolConfigurator(NetworkConfig.getPoolConfigurator(addrs));
@@ -29,7 +29,9 @@ contract RiskUpdatePayload {
         }
     }
 
-    function _getAddresses() private pure returns (NetworkConfig.Addresses memory) {
+    /// @notice Resolves `NetworkConfig.Addresses` for `NETWORK`.
+    /// @return addrs Addresses used for configuration calls.
+    function _getAddresses() private pure returns (NetworkConfig.Addresses memory addrs) {
         if (NETWORK == TokensConfig.Network.ArbitrumSepolia) {
             return ArbitrumSepolia.getAddresses();
         } else if (NETWORK == TokensConfig.Network.MonadMainnet) {

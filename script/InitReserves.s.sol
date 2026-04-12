@@ -2,13 +2,15 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {IPoolConfigurator} from "lib/L2-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
+import {IPool} from "lib/K613-Protocol/src/contracts/interfaces/IPool.sol";
+import {IPoolAddressesProvider} from "lib/K613-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
+import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
 import {
     IDefaultInterestRateStrategyV2
-} from "lib/L2-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
+} from "lib/K613-Protocol/src/contracts/interfaces/IDefaultInterestRateStrategyV2.sol";
 import {
     ConfiguratorInputTypes
-} from "lib/L2-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
+} from "lib/K613-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
@@ -17,8 +19,10 @@ import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 /// @title ListAssets
 /// @notice Script to initialize reserves (initReserves)
 contract InitReserves is Script {
+    error PoolUnresolved();
+
     // Change this constant to switch networks
-    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.ArbitrumSepolia;
+    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
     function run() external {
         // Try to get private key from env, fallback to broadcast() if not set
@@ -45,10 +49,17 @@ contract InitReserves is Script {
         NetworkConfig.Addresses memory addrs = _getAddresses();
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
 
+        address poolAddr = addrs.pool;
+        if (poolAddr == address(0)) {
+            if (addrs.poolAddressesProvider == address(0)) revert PoolUnresolved();
+            poolAddr = IPoolAddressesProvider(addrs.poolAddressesProvider).getPool();
+        }
+        if (poolAddr == address(0)) revert PoolUnresolved();
+        IPool pool = IPool(poolAddr);
+
         // Prepare initReserves inputs
         ConfiguratorInputTypes.InitReserveInput[] memory inputs =
             new ConfiguratorInputTypes.InitReserveInput[](tokens.length);
-        bytes memory interestRateData = _defaultInterestRateData();
 
         for (uint256 i = 0; i < tokens.length; i++) {
             TokensConfig.Token memory t = tokens[i];
@@ -66,7 +77,7 @@ contract InitReserves is Script {
                 variableDebtTokenName: string.concat("Aave Variable Debt ", t.symbol),
                 variableDebtTokenSymbol: string.concat("variableDebt", t.symbol),
                 params: "",
-                interestRateData: interestRateData
+                interestRateData: _getInterestRateData(t.symbol)
             });
         }
 
@@ -78,6 +89,12 @@ contract InitReserves is Script {
         uint256 skipCount = 0;
 
         for (uint256 i = 0; i < inputs.length; i++) {
+            if (pool.getReserveData(tokens[i].asset).aTokenAddress != address(0)) {
+                console.log("Reserve already initialized:", tokens[i].symbol);
+                skipCount++;
+                continue;
+            }
+
             ConfiguratorInputTypes.InitReserveInput[] memory singleInput =
                 new ConfiguratorInputTypes.InitReserveInput[](1);
             singleInput[0] = inputs[i];
@@ -86,7 +103,7 @@ contract InitReserves is Script {
                 console.log("Reserve initialized:", tokens[i].symbol);
                 successCount++;
             } catch {
-                console.log("Reserve already initialized:", tokens[i].symbol);
+                console.log("Reserve init reverted (skipped):", tokens[i].symbol);
                 skipCount++;
             }
         }
@@ -113,13 +130,54 @@ contract InitReserves is Script {
         }
     }
 
-    function _defaultInterestRateData() private pure returns (bytes memory) {
+    /// @notice Keccak256 over the UTF-8 bytes of a string.
+    function _hashString(string memory str) private pure returns (bytes32 hash) {
+        assembly {
+            hash := keccak256(add(str, 0x20), mload(str))
+        }
+    }
+
+    /// @notice Returns per-asset interest rate data based on asset class.
+    function _getInterestRateData(string memory symbol) private pure returns (bytes memory) {
+        bytes32 h = _hashString(symbol);
+
+        // Stablecoins
+        if (
+            h == _hashString("USDC") || h == _hashString("AUSD") || h == _hashString("USDT0")
+                || h == _hashString("WSRUSD") || h == _hashString("USDT") || h == _hashString("DAI")
+        ) {
+            return abi.encode(
+                IDefaultInterestRateStrategyV2.InterestRateData({
+                    optimalUsageRatio: 90_00,
+                    baseVariableBorrowRate: 0,
+                    variableRateSlope1: 5_00,
+                    variableRateSlope2: 60_00
+                })
+            );
+        }
+
+        // Blue-chip volatile (ETH, BTC)
+        if (
+            h == _hashString("WETH") || h == _hashString("wstETH") || h == _hashString("WBTC")
+                || h == _hashString("BTC")
+        ) {
+            return abi.encode(
+                IDefaultInterestRateStrategyV2.InterestRateData({
+                    optimalUsageRatio: 80_00,
+                    baseVariableBorrowRate: 0,
+                    variableRateSlope1: 3_50,
+                    variableRateSlope2: 80_00
+                })
+            );
+        }
+
+        // MON derivatives — lower optimal usage, steeper slope2
         return abi.encode(
             IDefaultInterestRateStrategyV2.InterestRateData({
-                optimalUsageRatio: 80_00,
-                baseVariableBorrowRate: 10_00,
-                variableRateSlope1: 4_00,
-                variableRateSlope2: 60_00
+                optimalUsageRatio: 45_00,
+                baseVariableBorrowRate: 0,
+                variableRateSlope1: 7_00,
+                variableRateSlope2: 300_00
             })
         );
     }

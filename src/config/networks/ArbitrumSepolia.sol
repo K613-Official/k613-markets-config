@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {NetworkConfig} from "./NetworkConfig.sol";
 
 /// @title ArbitrumSepolia
-/// @notice Network configuration for Arbitrum Sepolia testnet
+/// @notice Canonical addresses for the Arbitrum Sepolia testnet deployment.
 library ArbitrumSepolia {
     // Individual address constants
     address internal constant POOL_ADDRESSES_PROVIDER = 0x20f1827195Bbff32942C43681841d6b2B82651b7;
@@ -17,6 +17,8 @@ library ArbitrumSepolia {
     address internal constant INCENTIVES_CONTROLLER = 0x68884bc5ca880c72C6D7b17b90763e5cA5726f2E;
     address internal constant DEFAULT_INTEREST_RATE_STRATEGY = 0x6589929D18ee9a072e83e60963DCF32F1621F157;
 
+    /// @notice Returns the full address bundle for this network.
+    /// @return Structured addresses for scripts and payloads.
     function getAddresses() internal pure returns (NetworkConfig.Addresses memory) {
         return NetworkConfig.Addresses({
             poolAddressesProvider: POOL_ADDRESSES_PROVIDER,
@@ -31,6 +33,8 @@ library ArbitrumSepolia {
         });
     }
 
+    /// @notice Convenience accessor for the pool configurator on this chain.
+    /// @return Configurator address (explicit or from provider).
     function getPoolConfigurator() internal view returns (address) {
         return NetworkConfig.getPoolConfigurator(getAddresses());
     }

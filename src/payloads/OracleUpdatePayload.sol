@@ -8,19 +8,21 @@ import {ArbitrumSepolia} from "../config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../config/networks/MonadMainnet.sol";
 
 /// @title OracleUpdatePayload
-/// @notice Aave-style payload to update oracle price feeds
-/// @dev Stateless, execute-only governance payload
-/// @dev Set NETWORK constant to switch between networks
+/// @notice Registers asset price sources on the Aave oracle for the configured network.
+/// @dev Stateless, execute-only; switch `NETWORK` for other deployments.
 contract OracleUpdatePayload {
-    // Change this constant to switch networks
-    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.ArbitrumSepolia;
+    /// @notice Active deployment for this payload bytecode.
+    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
+    /// @notice Calls `OraclesConfig.configureOracles` with deployment addresses.
     function execute() external {
         NetworkConfig.Addresses memory addrs = _getAddresses();
         OraclesConfig.configureOracles(addrs.oracle, NETWORK);
     }
 
-    function _getAddresses() private pure returns (NetworkConfig.Addresses memory) {
+    /// @notice Resolves `NetworkConfig.Addresses` for `NETWORK`.
+    /// @return addrs Addresses used for oracle configuration.
+    function _getAddresses() private pure returns (NetworkConfig.Addresses memory addrs) {
         if (NETWORK == TokensConfig.Network.ArbitrumSepolia) {
             return ArbitrumSepolia.getAddresses();
         } else if (NETWORK == TokensConfig.Network.MonadMainnet) {

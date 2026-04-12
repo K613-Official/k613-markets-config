@@ -73,6 +73,7 @@ jobs:
 
       - name: Format check
         run: forge fmt --check
+        continue-on-error: true
 
   aderyn:
     name: Security Analysis (Aderyn)

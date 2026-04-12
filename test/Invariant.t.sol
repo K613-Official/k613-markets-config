@@ -141,29 +141,21 @@ contract InvariantTest is Test {
         TokensConfig.Token[] memory tokensMonad = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
         RiskConfig.RiskParams[] memory paramsMonad = RiskConfig.getRiskParams(TokensConfig.Network.MonadMainnet);
 
-        // Both networks should have same number of tokens
-        assertEq(tokensSepolia.length, tokensMonad.length, "Both networks should have same number of tokens");
+        assertEq(tokensSepolia.length, 5);
+        assertEq(tokensMonad.length, 11);
 
-        // For each token, risk parameters should be the same (except addresses)
         for (uint256 i = 0; i < tokensSepolia.length; i++) {
-            assertEq(tokensSepolia[i].symbol, tokensMonad[i].symbol, "Token symbols should match across networks");
-
-            assertEq(paramsSepolia[i].ltv, paramsMonad[i].ltv, "LTV should match across networks");
-            assertEq(
-                paramsSepolia[i].liquidationThreshold,
-                paramsMonad[i].liquidationThreshold,
-                "Liquidation threshold should match across networks"
-            );
-            assertEq(
-                paramsSepolia[i].liquidationBonus,
-                paramsMonad[i].liquidationBonus,
-                "Liquidation bonus should match across networks"
-            );
-            assertEq(
-                paramsSepolia[i].reserveFactor,
-                paramsMonad[i].reserveFactor,
-                "Reserve factor should match across networks"
-            );
+            bytes32 sym = keccak256(bytes(tokensSepolia[i].symbol));
+            for (uint256 j = 0; j < tokensMonad.length; j++) {
+                if (keccak256(bytes(tokensMonad[j].symbol)) != sym) {
+                    continue;
+                }
+                assertEq(paramsSepolia[i].ltv, paramsMonad[j].ltv);
+                assertEq(paramsSepolia[i].liquidationThreshold, paramsMonad[j].liquidationThreshold);
+                assertEq(paramsSepolia[i].liquidationBonus, paramsMonad[j].liquidationBonus);
+                assertEq(paramsSepolia[i].reserveFactor, paramsMonad[j].reserveFactor);
+                break;
+            }
         }
     }
 
