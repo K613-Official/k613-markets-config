@@ -10,30 +10,32 @@ import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 import {IPoolAddressesProvider} from "lib/K613-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
 import {IACLManager} from "lib/K613-Protocol/src/contracts/interfaces/IACLManager.sol";
+import {SimulationPrank} from "./SimulationPrank.sol";
 
 /// @title ConfigureRisk
 /// @notice Script for final risk parameter configuration
-contract ConfigureRisk is Script {
+contract ConfigureRisk is Script, SimulationPrank {
     error ZeroPoolAddressesProvider();
     error ZeroAclManager();
 
     function run() external {
-        // Try to get private key from env, fallback to broadcast() if not set
         address deployer;
+        uint256 pk;
+        bool pkResolved;
 
-        try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
-            deployer = vm.addr(pk);
-            vm.startBroadcast(pk);
+        try vm.envUint("PRIVATE_KEY") returns (uint256 pk_) {
+            pk = pk_;
+            pkResolved = true;
+            deployer = vm.addr(pk_);
         } catch {
-            // Use --private-key from command line
-            vm.startBroadcast();
-            // Get deployer from wallets
             address[] memory wallets = vm.getWallets();
-            if (wallets.length > 0) {
-                deployer = wallets[0];
-            } else {
-                deployer = tx.origin;
-            }
+            deployer = wallets.length > 0 ? wallets[0] : tx.origin;
+        }
+
+        bool skipBroadcast = _simulationPrankActive();
+        if (!skipBroadcast) {
+            if (pkResolved) vm.startBroadcast(pk);
+            else vm.startBroadcast();
         }
 
         console.log("Deployer address:", deployer);
@@ -55,10 +57,12 @@ contract ConfigureRisk is Script {
 
         console.log("ACLManager:", aclManagerAddress);
         IACLManager aclManager = IACLManager(aclManagerAddress);
+        bool prank = _beginSimulationPrank();
         if (!aclManager.isRiskAdmin(address(riskUpdatePayload))) {
             console.log("Granting RiskAdmin to payload...");
             aclManager.addRiskAdmin(address(riskUpdatePayload));
         }
+        _endSimulationPrank(prank);
         TokensConfig.Token[] memory tokens = TokensConfig.getTokens(network);
         RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(network);
 
@@ -72,13 +76,14 @@ contract ConfigureRisk is Script {
             console.log("  Reserve factor:", riskParams[i].reserveFactor);
         }
 
-        // Execute payload to set risk parameters (caps and reserve factor)
         console.log("Setting borrow/supply caps and reserve factors...");
+        prank = _beginSimulationPrank();
         riskUpdatePayload.execute();
+        _endSimulationPrank(prank);
 
         console.log("Risk parameters configured successfully!");
 
-        vm.stopBroadcast();
+        if (!skipBroadcast) vm.stopBroadcast();
 
         console.log("RiskUpdatePayload execution complete!");
     }

@@ -108,9 +108,9 @@ library RiskConfig {
 
         // Stablecoins
         if (
-            symbolHash == _hashString("USDC") || symbolHash == _hashString("AUSD")
-                || symbolHash == _hashString("USDT0") || symbolHash == _hashString("WSRUSD")
-                || symbolHash == _hashString("USDT") || symbolHash == _hashString("DAI")
+            symbolHash == _hashString("USDC") || symbolHash == _hashString("AUSD") || symbolHash == _hashString("USDT0")
+                || symbolHash == _hashString("WSRUSD") || symbolHash == _hashString("USDT")
+                || symbolHash == _hashString("DAI")
         ) {
             ltv = STABLECOIN_LTV;
             liquidationThreshold = STABLECOIN_LIQUIDATION_THRESHOLD;

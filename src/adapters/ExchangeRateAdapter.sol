@@ -18,12 +18,8 @@ contract ExchangeRateAdapter is AggregatorInterface {
 
     /// @param _exchangeRateFeed Chainlink feed returning token/MON exchange rate
     /// @param _monUsdFeed Chainlink MON/USD price feed
- 
-    constructor(
-        address _exchangeRateFeed,
-        address _monUsdFeed,
-        string memory description_
-    ) {
+
+    constructor(address _exchangeRateFeed, address _monUsdFeed, string memory description_) {
         if (_exchangeRateFeed == address(0)) revert ZeroExchangeRateFeed();
         if (_monUsdFeed == address(0)) revert ZeroMonUsdFeed();
         exchangeRateFeed = AggregatorInterface(_exchangeRateFeed);
@@ -56,8 +52,8 @@ contract ExchangeRateAdapter is AggregatorInterface {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        (, int256 rate, , uint256 rateUpdatedAt, ) = exchangeRateFeed.latestRoundData();
-        (, int256 monPrice, , uint256 monUpdatedAt, ) = monUsdFeed.latestRoundData();
+        (, int256 rate,, uint256 rateUpdatedAt,) = exchangeRateFeed.latestRoundData();
+        (, int256 monPrice,, uint256 monUpdatedAt,) = monUsdFeed.latestRoundData();
 
         int256 price = 0;
         if (rate > 0 && monPrice > 0) {
@@ -79,8 +75,8 @@ contract ExchangeRateAdapter is AggregatorInterface {
     }
 
     function latestTimestamp() external view override returns (uint256) {
-        (, , , uint256 rateUpdatedAt, ) = exchangeRateFeed.latestRoundData();
-        (, , , uint256 monUpdatedAt, ) = monUsdFeed.latestRoundData();
+        (,,, uint256 rateUpdatedAt,) = exchangeRateFeed.latestRoundData();
+        (,,, uint256 monUpdatedAt,) = monUsdFeed.latestRoundData();
         return rateUpdatedAt < monUpdatedAt ? rateUpdatedAt : monUpdatedAt;
     }
 

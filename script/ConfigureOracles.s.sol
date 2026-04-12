@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
+import {SimulationPrank} from "./SimulationPrank.sol";
 import {OraclesConfig} from "../src/config/OraclesConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
@@ -9,27 +10,28 @@ import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 
 /// @title ConfigureOracles
 /// @notice Script to configure Chainlink price feeds via AaveOracle
-contract ConfigureOracles is Script {
+contract ConfigureOracles is Script, SimulationPrank {
     // Change this constant to switch networks
     TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
     function run() external {
-        // Try to get private key from env, fallback to broadcast() if not set
         address deployer;
+        uint256 pk;
+        bool pkResolved;
 
-        try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
-            deployer = vm.addr(pk);
-            vm.startBroadcast(pk);
+        try vm.envUint("PRIVATE_KEY") returns (uint256 pk_) {
+            pk = pk_;
+            pkResolved = true;
+            deployer = vm.addr(pk_);
         } catch {
-            // Use --private-key from command line
-            vm.startBroadcast();
-            // Get deployer from wallets
             address[] memory wallets = vm.getWallets();
-            if (wallets.length > 0) {
-                deployer = wallets[0];
-            } else {
-                deployer = tx.origin;
-            }
+            deployer = wallets.length > 0 ? wallets[0] : tx.origin;
+        }
+
+        bool skipBroadcast = _simulationPrankActive();
+        if (!skipBroadcast) {
+            if (pkResolved) vm.startBroadcast(pk);
+            else vm.startBroadcast();
         }
 
         console.log("Deployer address:", deployer);
@@ -40,7 +42,9 @@ contract ConfigureOracles is Script {
         // Configure oracles directly via deployer
         // Deployer must have Pool Admin or Asset Listing Admin rights
         console.log("Configuring price feeds...");
+        bool prank = _beginSimulationPrank();
         OraclesConfig.configureOracles(oracleAddress, NETWORK);
+        _endSimulationPrank(prank);
         console.log("Oracles configured successfully!");
 
         // Verify oracles using OraclesConfig library
@@ -56,7 +60,7 @@ contract ConfigureOracles is Script {
             }
         }
 
-        vm.stopBroadcast();
+        if (!skipBroadcast) vm.stopBroadcast();
 
         console.log("Oracle configuration complete!");
     }

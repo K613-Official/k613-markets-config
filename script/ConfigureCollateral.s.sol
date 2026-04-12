@@ -10,11 +10,12 @@ import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
+import {SimulationPrank} from "./SimulationPrank.sol";
 
 /// @title ConfigureCollateral
 /// @notice Configure collateral parameters (LTV, LT, LB) and enable borrowing
 /// @dev Aave v3 compatible script (configureReserveAsCollateral ONLY)
-contract ConfigureCollateral is Script {
+contract ConfigureCollateral is Script, SimulationPrank {
     error ZeroPoolAddressesProvider();
     error ZeroPool();
     error ZeroPoolConfigurator();
@@ -27,15 +28,22 @@ contract ConfigureCollateral is Script {
 
     function run() external {
         address deployer;
+        uint256 pk;
+        bool pkResolved;
 
-        // --- broadcast setup ---
-        try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
-            deployer = vm.addr(pk);
-            vm.startBroadcast(pk);
+        try vm.envUint("PRIVATE_KEY") returns (uint256 pk_) {
+            pk = pk_;
+            pkResolved = true;
+            deployer = vm.addr(pk_);
         } catch {
-            vm.startBroadcast();
             address[] memory wallets = vm.getWallets();
             deployer = wallets.length > 0 ? wallets[0] : tx.origin;
+        }
+
+        bool skipBroadcast = _simulationPrankActive();
+        if (!skipBroadcast) {
+            if (pkResolved) vm.startBroadcast(pk);
+            else vm.startBroadcast();
         }
 
         console.log("Deployer:", deployer);
@@ -82,6 +90,7 @@ contract ConfigureCollateral is Script {
             console.log("LT :", r.liquidationThreshold);
             console.log("LB :", r.liquidationBonus);
 
+            bool prank = _beginSimulationPrank();
             try configurator.configureReserveAsCollateral(r.asset, r.ltv, r.liquidationThreshold, r.liquidationBonus) {
                 configurator.setReserveBorrowing(r.asset, true);
                 console.log(" collateral configured & borrowing enabled");
@@ -91,6 +100,7 @@ contract ConfigureCollateral is Script {
                 console.logBytes(reason);
                 failed++;
             }
+            _endSimulationPrank(prank);
         }
 
         console.log("--------------------------------------------------");
@@ -98,7 +108,7 @@ contract ConfigureCollateral is Script {
         console.log("FAILED :", failed);
         console.log("ConfigureCollateral finished");
 
-        vm.stopBroadcast();
+        if (!skipBroadcast) vm.stopBroadcast();
     }
 
     function _getAddresses() private pure returns (NetworkConfig.Addresses memory) {

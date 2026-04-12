@@ -4,10 +4,13 @@ pragma solidity ^0.8.30;
 import {Script, console} from "forge-std/Script.sol";
 import {IERC20} from "lib/K613-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
 import {IPool} from "lib/K613-Protocol/src/contracts/interfaces/IPool.sol";
+import {DataTypes} from "lib/K613-Protocol/src/contracts/protocol/libraries/types/DataTypes.sol";
 import {IPoolAddressesProvider} from "lib/K613-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
 import {IEmissionManager} from "lib/K613-Protocol/src/contracts/rewards/interfaces/IEmissionManager.sol";
 import {ITransferStrategyBase} from "lib/K613-Protocol/src/contracts/rewards/interfaces/ITransferStrategyBase.sol";
-import {PullRewardsTransferStrategy} from "lib/K613-Protocol/src/contracts/rewards/transfer-strategies/PullRewardsTransferStrategy.sol";
+import {
+    PullRewardsTransferStrategy
+} from "lib/K613-Protocol/src/contracts/rewards/transfer-strategies/PullRewardsTransferStrategy.sol";
 import {RewardsDataTypes} from "lib/K613-Protocol/src/contracts/rewards/libraries/RewardsDataTypes.sol";
 import {AggregatorInterface} from "lib/K613-Protocol/src/contracts/dependencies/chainlink/AggregatorInterface.sol";
 import {IRewardsDistributor} from "lib/K613-Protocol/src/contracts/rewards/interfaces/IRewardsDistributor.sol";
@@ -17,20 +20,21 @@ import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
+import {SimulationPrank} from "./SimulationPrank.sol";
 
 interface IOwnable {
     function owner() external view returns (address);
 }
 
 /// @title ConfigureSupplyIncentives
-/// @notice Configures xK613 supply incentives for all Monad mainnet markets in one tx
+/// @notice Configures xK613 supply and borrow incentives for all Monad mainnet markets in one tx
 /// @dev Env vars:
 ///   INCENTIVES_REWARD_TOKEN     — xK613 token address
 ///   INCENTIVES_REWARDS_VAULT    — vault holding xK613
 ///   INCENTIVES_DISTRIBUTION_END — unix timestamp (end of Year 1)
 ///   INCENTIVES_REWARD_ORACLE_ANSWER  — xK613 price in USD (default: 800000 = $0.008, 8 decimals)
 ///   INCENTIVES_REWARD_ORACLE_DECIMALS — oracle decimals (default: 8)
-contract ConfigureSupplyIncentives is Script {
+contract ConfigureSupplyIncentives is Script, SimulationPrank {
     error DistributionEndOverflow();
     error DistributionEndInPast();
     error InvalidOracleAnswer();
@@ -45,13 +49,22 @@ contract ConfigureSupplyIncentives is Script {
 
     function run() external {
         address deployer;
-        try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
-            deployer = vm.addr(pk);
-            vm.startBroadcast(pk);
+        uint256 pk;
+        bool pkResolved;
+
+        try vm.envUint("PRIVATE_KEY") returns (uint256 pk_) {
+            pk = pk_;
+            pkResolved = true;
+            deployer = vm.addr(pk_);
         } catch {
-            vm.startBroadcast();
             address[] memory wallets = vm.getWallets();
             deployer = wallets.length > 0 ? wallets[0] : tx.origin;
+        }
+
+        bool skipBroadcast = _simulationPrankActive();
+        if (!skipBroadcast) {
+            if (pkResolved) vm.startBroadcast(pk);
+            else vm.startBroadcast();
         }
 
         address rewardToken = vm.envAddress("INCENTIVES_REWARD_TOKEN");
@@ -88,31 +101,28 @@ contract ConfigureSupplyIncentives is Script {
         }
         if (emissionManager.getEmissionAdmin(rewardToken) != deployer) revert NotEmissionAdmin();
 
-        // Deploy shared price feed and transfer strategy
-        StaticRewardPriceFeed priceFeed = new StaticRewardPriceFeed(
-            oracleAnswer,
-            oracleDecimals,
-            "xK613 / USD"
-        );
-        PullRewardsTransferStrategy strategy = new PullRewardsTransferStrategy(
-            addrs.incentivesController,
-            deployer,
-            rewardsVault
-        );
+        StaticRewardPriceFeed priceFeed = new StaticRewardPriceFeed(oracleAnswer, oracleDecimals, "xK613 / USD");
+        PullRewardsTransferStrategy strategy =
+            new PullRewardsTransferStrategy(addrs.incentivesController, deployer, rewardsVault);
 
         // Build configs for all markets
         IncentivesConfig.EmissionConfig[] memory emissions =
             IncentivesConfig.getEmissionConfigs(IncentivesConfig.YEAR1_TOTAL);
 
         RewardsDataTypes.RewardsConfigInput[] memory cfg =
-            new RewardsDataTypes.RewardsConfigInput[](emissions.length);
+            new RewardsDataTypes.RewardsConfigInput[](emissions.length * 2);
 
         for (uint256 i = 0; i < emissions.length; i++) {
-            address aToken = pool.getReserveData(emissions[i].asset).aTokenAddress;
-            if (aToken == address(0)) revert ReserveNotListed(emissions[i].symbol);
+            DataTypes.ReserveDataLegacy memory reserveData = pool.getReserveData(emissions[i].asset);
+            address aToken = reserveData.aTokenAddress;
+            address variableDebtToken = reserveData.variableDebtTokenAddress;
+            if (aToken == address(0) || variableDebtToken == address(0)) {
+                revert ReserveNotListed(emissions[i].symbol);
+            }
 
-            cfg[i] = RewardsDataTypes.RewardsConfigInput({
-                emissionPerSecond: emissions[i].emissionPerSecond,
+            uint256 base = i * 2;
+            cfg[base] = RewardsDataTypes.RewardsConfigInput({
+                emissionPerSecond: emissions[i].supplyEmissionPerSecond,
                 totalSupply: 0,
                 distributionEnd: distributionEnd,
                 asset: aToken,
@@ -120,22 +130,34 @@ contract ConfigureSupplyIncentives is Script {
                 transferStrategy: ITransferStrategyBase(strategy),
                 rewardOracle: AggregatorInterface(address(priceFeed))
             });
+            cfg[base + 1] = RewardsDataTypes.RewardsConfigInput({
+                emissionPerSecond: emissions[i].borrowEmissionPerSecond,
+                totalSupply: 0,
+                distributionEnd: distributionEnd,
+                asset: variableDebtToken,
+                reward: rewardToken,
+                transferStrategy: ITransferStrategyBase(strategy),
+                rewardOracle: AggregatorInterface(address(priceFeed))
+            });
 
             console.log(emissions[i].symbol);
             console.log("  aToken:", aToken);
+            console.log("  variableDebtToken:", variableDebtToken);
             console.log("  weight:", emissions[i].weight, "bps");
-            console.log("  emission/sec:", uint256(emissions[i].emissionPerSecond));
+            console.log("  supply emission/sec:", uint256(emissions[i].supplyEmissionPerSecond));
+            console.log("  borrow emission/sec:", uint256(emissions[i].borrowEmissionPerSecond));
         }
 
-        // Configure all markets in one call
+        bool prank = _beginSimulationPrank();
         emissionManager.configureAssets(cfg);
+        _endSimulationPrank(prank);
 
         console.log("\n=== Deployment Summary ===");
         console.log("Reward token (xK613):", rewardToken);
         console.log("Rewards vault:", rewardsVault);
         console.log("PriceFeed:", address(priceFeed));
         console.log("TransferStrategy:", address(strategy));
-        console.log("Markets configured:", emissions.length);
+        console.log("Reward distributions configured:", cfg.length);
         console.log("Distribution end:", uint256(distributionEnd));
 
         uint256 allowance = IERC20(rewardToken).allowance(rewardsVault, address(strategy));
@@ -144,7 +166,7 @@ contract ConfigureSupplyIncentives is Script {
             console.log("  IERC20(xK613).approve(strategy, type(uint256).max)");
         }
 
-        vm.stopBroadcast();
+        if (!skipBroadcast) vm.stopBroadcast();
     }
 
     function _getAddresses() private pure returns (NetworkConfig.Addresses memory) {
