@@ -12,6 +12,7 @@ import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 import {IPoolAddressesProvider} from "lib/K613-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
 import {IACLManager} from "lib/K613-Protocol/src/contracts/interfaces/IACLManager.sol";
+import {SimulationPrank} from "./SimulationPrank.sol";
 
 /// @title FullMarketSetup
 /// @notice Complete market setup script executing all payloads in correct order
@@ -20,26 +21,27 @@ import {IACLManager} from "lib/K613-Protocol/src/contracts/interfaces/IACLManage
 ///      2. ListAssets (ListingPayload - initReserves)
 ///      3. ConfigureCollateral (CollateralConfigPayload - LTV/LT/LB + borrowing)
 ///      4. ConfigureRisk (RiskUpdatePayload - caps + reserve factor)
-contract FullMarketSetup is Script {
+contract FullMarketSetup is Script, SimulationPrank {
     TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
     function run() external {
-        // Try to get private key from env, fallback to broadcast() if not set
         address deployer;
+        uint256 pk;
+        bool pkResolved;
 
-        try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
-            deployer = vm.addr(pk);
-            vm.startBroadcast(pk);
+        try vm.envUint("PRIVATE_KEY") returns (uint256 pk_) {
+            pk = pk_;
+            pkResolved = true;
+            deployer = vm.addr(pk_);
         } catch {
-            // Use --private-key from command line
-            vm.startBroadcast();
-            // Get deployer from wallets
             address[] memory wallets = vm.getWallets();
-            if (wallets.length > 0) {
-                deployer = wallets[0];
-            } else {
-                deployer = tx.origin;
-            }
+            deployer = wallets.length > 0 ? wallets[0] : tx.origin;
+        }
+
+        bool skipBroadcast = _simulationPrankActive();
+        if (!skipBroadcast) {
+            if (pkResolved) vm.startBroadcast(pk);
+            else vm.startBroadcast();
         }
 
         console.log("Deployer address:", deployer);
@@ -47,47 +49,49 @@ contract FullMarketSetup is Script {
 
         // Resolve ACLManager
         NetworkConfig.Addresses memory addrs = _getAddresses();
-        IACLManager aclManager = IACLManager(
-            IPoolAddressesProvider(addrs.poolAddressesProvider).getACLManager()
-        );
+        IACLManager aclManager = IACLManager(IPoolAddressesProvider(addrs.poolAddressesProvider).getACLManager());
 
-        // Step 1: Configure Oracles (requires AssetListingAdmin or PoolAdmin)
         console.log("=== Step 1: Configuring Oracles ===");
         OracleUpdatePayload oraclePayload = new OracleUpdatePayload();
         console.log("OracleUpdatePayload deployed at:", address(oraclePayload));
+        bool prank = _beginSimulationPrank();
         aclManager.addAssetListingAdmin(address(oraclePayload));
         oraclePayload.execute();
         aclManager.removeAssetListingAdmin(address(oraclePayload));
+        _endSimulationPrank(prank);
         console.log("Oracles configured successfully!\n");
 
-        // Step 2: Initialize Reserves (requires AssetListingAdmin or PoolAdmin)
         console.log("=== Step 2: Initializing Reserves (Listing) ===");
         ListingPayload listingPayload = new ListingPayload();
         console.log("ListingPayload deployed at:", address(listingPayload));
+        prank = _beginSimulationPrank();
         aclManager.addAssetListingAdmin(address(listingPayload));
         listingPayload.execute();
         aclManager.removeAssetListingAdmin(address(listingPayload));
+        _endSimulationPrank(prank);
         console.log("Reserves initialized successfully!\n");
 
-        // Step 3: Configure Collateral Parameters (requires RiskAdmin or PoolAdmin)
         console.log("=== Step 3: Configuring Collateral Parameters ===");
         CollateralConfigPayload collateralPayload = new CollateralConfigPayload();
         console.log("CollateralConfigPayload deployed at:", address(collateralPayload));
+        prank = _beginSimulationPrank();
         aclManager.addRiskAdmin(address(collateralPayload));
         collateralPayload.execute();
         aclManager.removeRiskAdmin(address(collateralPayload));
+        _endSimulationPrank(prank);
         console.log("Collateral parameters configured successfully!\n");
 
-        // Step 4: Configure Risk Parameters (requires RiskAdmin or PoolAdmin)
         console.log("=== Step 4: Configuring Risk Parameters ===");
         RiskUpdatePayload riskPayload = new RiskUpdatePayload();
         console.log("RiskUpdatePayload deployed at:", address(riskPayload));
+        prank = _beginSimulationPrank();
         aclManager.addRiskAdmin(address(riskPayload));
         riskPayload.execute();
         aclManager.removeRiskAdmin(address(riskPayload));
+        _endSimulationPrank(prank);
         console.log("Risk parameters configured successfully!\n");
 
-        vm.stopBroadcast();
+        if (!skipBroadcast) vm.stopBroadcast();
 
         console.log("==========================================");
         console.log("Full market setup completed successfully!");

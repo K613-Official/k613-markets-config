@@ -21,19 +21,13 @@ contract DeployAdapters is Script {
 
         console.log("Deploying ExchangeRateAdapters...\n");
 
-        ExchangeRateAdapter shmonAdapter = new ExchangeRateAdapter(
-            SHMON_MON, MON_USD, "shMON / USD"
-        );
+        ExchangeRateAdapter shmonAdapter = new ExchangeRateAdapter(SHMON_MON, MON_USD, "shMON / USD");
         console.log("shMON/USD adapter:", address(shmonAdapter));
 
-        ExchangeRateAdapter smonAdapter = new ExchangeRateAdapter(
-            SMON_MON, MON_USD, "sMON / USD"
-        );
+        ExchangeRateAdapter smonAdapter = new ExchangeRateAdapter(SMON_MON, MON_USD, "sMON / USD");
         console.log("sMON/USD adapter:", address(smonAdapter));
 
-        ExchangeRateAdapter gmonAdapter = new ExchangeRateAdapter(
-            GMON_MON, MON_USD, "gMON / USD"
-        );
+        ExchangeRateAdapter gmonAdapter = new ExchangeRateAdapter(GMON_MON, MON_USD, "gMON / USD");
         console.log("gMON/USD adapter:", address(gmonAdapter));
 
         vm.stopBroadcast();

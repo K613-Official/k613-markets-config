@@ -106,7 +106,7 @@ library TokensConfig {
         // wstETH - Wrapped Staked Ether
         tokens[2] = Token({
             asset: 0x10Aeaf63194db8d453d4D85a06E5eFE1dd0b5417,
-            priceFeed: 0xe6cd21b31948503dB54A07875999979722504B9A, 
+            priceFeed: 0xe6cd21b31948503dB54A07875999979722504B9A,
             decimals: 18,
             symbol: "wstETH"
         });
@@ -138,7 +138,7 @@ library TokensConfig {
         // WBTC - Wrapped Bitcoin
         tokens[6] = Token({
             asset: 0x0555E30da8f98308EdB960aa94C0Db47230d2B9c,
-            priceFeed: 0x2D1Df1bD061AAc38C22407AD69d69bCC3C62edBD, 
+            priceFeed: 0x2D1Df1bD061AAc38C22407AD69d69bCC3C62edBD,
             decimals: 8,
             symbol: "WBTC"
         });
@@ -151,7 +151,7 @@ library TokensConfig {
             symbol: "WMON"
         });
 
-        // SHMON 
+        // SHMON
         tokens[8] = Token({
             asset: 0x1B68626dCa36c7fE922fD2d55E4f631d962dE19c,
             priceFeed: 0x4f9ba5CaE0e3F651821283EC4e303fE8D1dA542a,
@@ -167,7 +167,7 @@ library TokensConfig {
             symbol: "SMON"
         });
 
-        // GMON 
+        // GMON
         tokens[10] = Token({
             asset: 0x8498312A6B3CbD158bf0c93AbdCF29E6e4F55081,
             priceFeed: 0xE53969561603a9052E3F579b2992C12F3C783496,

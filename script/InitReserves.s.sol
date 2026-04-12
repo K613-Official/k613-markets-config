@@ -15,32 +15,34 @@ import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
+import {SimulationPrank} from "./SimulationPrank.sol";
 
 /// @title ListAssets
 /// @notice Script to initialize reserves (initReserves)
-contract InitReserves is Script {
+contract InitReserves is Script, SimulationPrank {
     error PoolUnresolved();
 
     // Change this constant to switch networks
     TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
     function run() external {
-        // Try to get private key from env, fallback to broadcast() if not set
         address deployer;
+        uint256 pk;
+        bool pkResolved;
 
-        try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
-            deployer = vm.addr(pk);
-            vm.startBroadcast(pk);
+        try vm.envUint("PRIVATE_KEY") returns (uint256 pk_) {
+            pk = pk_;
+            pkResolved = true;
+            deployer = vm.addr(pk_);
         } catch {
-            // Use --private-key from command line
-            vm.startBroadcast();
-            // Get deployer from wallets
             address[] memory wallets = vm.getWallets();
-            if (wallets.length > 0) {
-                deployer = wallets[0];
-            } else {
-                deployer = tx.origin;
-            }
+            deployer = wallets.length > 0 ? wallets[0] : tx.origin;
+        }
+
+        bool skipBroadcast = _simulationPrankActive();
+        if (!skipBroadcast) {
+            if (pkResolved) vm.startBroadcast(pk);
+            else vm.startBroadcast();
         }
 
         console.log("Deployer address:", deployer);
@@ -99,6 +101,7 @@ contract InitReserves is Script {
                 new ConfiguratorInputTypes.InitReserveInput[](1);
             singleInput[0] = inputs[i];
 
+            bool prank = _beginSimulationPrank();
             try configurator.initReserves(singleInput) {
                 console.log("Reserve initialized:", tokens[i].symbol);
                 successCount++;
@@ -106,6 +109,7 @@ contract InitReserves is Script {
                 console.log("Reserve init reverted (skipped):", tokens[i].symbol);
                 skipCount++;
             }
+            _endSimulationPrank(prank);
         }
 
         console.log("Initialized:", successCount, "Skipped:", skipCount);
@@ -115,7 +119,7 @@ contract InitReserves is Script {
         console.log("  1. Execute ConfigureCollateral to configure collateral parameters");
         console.log("  2. Execute ConfigureRisk to set caps and reserve factors");
 
-        vm.stopBroadcast();
+        if (!skipBroadcast) vm.stopBroadcast();
 
         console.log("Reserve initialization complete!");
     }

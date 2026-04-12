@@ -42,13 +42,12 @@ contract StaticRewardPriceFeed is AggregatorInterface {
     /// @return startedAt Block timestamp placeholder.
     /// @return updatedAt Block timestamp placeholder.
     /// @return answeredInRound Round id echo.
-    function getRoundData(uint80) external view override returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
+    function getRoundData(uint80)
+        external
+        view
+        override
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         return (1, fixedAnswer, block.timestamp, block.timestamp, 1);
     }
 
@@ -58,13 +57,12 @@ contract StaticRewardPriceFeed is AggregatorInterface {
     /// @return startedAt Block timestamp placeholder.
     /// @return updatedAt Block timestamp placeholder.
     /// @return answeredInRound Round id echo.
-    function latestRoundData() external view override returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
+    function latestRoundData()
+        external
+        view
+        override
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         return (1, fixedAnswer, block.timestamp, block.timestamp, 1);
     }
 
