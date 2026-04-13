@@ -11,6 +11,10 @@ contract ExchangeRateAdapter is AggregatorInterface {
     error ZeroExchangeRateFeed();
     error ZeroMonUsdFeed();
 
+    address private constant ZERO_ADDRESS = address(0);
+    int256 private constant ZERO_PRICE = 0;
+    uint80 private constant STATIC_ROUND_ID = 1;
+
     AggregatorInterface public immutable exchangeRateFeed;
     AggregatorInterface public immutable monUsdFeed;
     uint8 private immutable _decimals;
@@ -20,12 +24,12 @@ contract ExchangeRateAdapter is AggregatorInterface {
     /// @param _monUsdFeed Chainlink MON/USD price feed
 
     constructor(address _exchangeRateFeed, address _monUsdFeed, string memory description_) {
-        if (_exchangeRateFeed == address(0)) revert ZeroExchangeRateFeed();
-        if (_monUsdFeed == address(0)) revert ZeroMonUsdFeed();
+        if (_exchangeRateFeed == ZERO_ADDRESS) revert ZeroExchangeRateFeed();
+        if (_monUsdFeed == ZERO_ADDRESS) revert ZeroMonUsdFeed();
         exchangeRateFeed = AggregatorInterface(_exchangeRateFeed);
         monUsdFeed = AggregatorInterface(_monUsdFeed);
-        _decimals = monUsdFeed.decimals();
         _description = description_;
+        _decimals = monUsdFeed.decimals();
     }
 
     function decimals() external view override returns (uint8) {
@@ -40,7 +44,7 @@ contract ExchangeRateAdapter is AggregatorInterface {
     function latestAnswer() external view override returns (int256) {
         int256 rate = exchangeRateFeed.latestAnswer();
         int256 monPrice = monUsdFeed.latestAnswer();
-        if (rate <= 0 || monPrice <= 0) return 0;
+        if (rate <= ZERO_PRICE || monPrice <= ZERO_PRICE) return ZERO_PRICE;
 
         uint8 rateDecimals = exchangeRateFeed.decimals();
         return (rate * monPrice) / int256(10 ** uint256(rateDecimals));
@@ -55,14 +59,14 @@ contract ExchangeRateAdapter is AggregatorInterface {
         (, int256 rate,, uint256 rateUpdatedAt,) = exchangeRateFeed.latestRoundData();
         (, int256 monPrice,, uint256 monUpdatedAt,) = monUsdFeed.latestRoundData();
 
-        int256 price = 0;
-        if (rate > 0 && monPrice > 0) {
+        int256 price = ZERO_PRICE;
+        if (rate > ZERO_PRICE && monPrice > ZERO_PRICE) {
             uint8 rateDecimals = exchangeRateFeed.decimals();
             price = (rate * monPrice) / int256(10 ** uint256(rateDecimals));
         }
 
         uint256 oldestUpdate = rateUpdatedAt < monUpdatedAt ? rateUpdatedAt : monUpdatedAt;
-        return (1, price, oldestUpdate, oldestUpdate, 1);
+        return (STATIC_ROUND_ID, price, oldestUpdate, oldestUpdate, STATIC_ROUND_ID);
     }
 
     function getRoundData(uint80)
@@ -81,7 +85,7 @@ contract ExchangeRateAdapter is AggregatorInterface {
     }
 
     function latestRound() external view override returns (uint256) {
-        return 1;
+        return uint256(STATIC_ROUND_ID);
     }
 
     function getAnswer(uint256) external view override returns (int256) {

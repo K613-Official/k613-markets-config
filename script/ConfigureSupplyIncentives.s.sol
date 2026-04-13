@@ -44,6 +44,7 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
     error SetEmissionAdminFirst();
     error NotEmissionAdmin();
     error ReserveNotListed(string symbol);
+    error ZeroIncentivesConfig();
 
     TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
@@ -69,6 +70,8 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
 
         address rewardToken = vm.envAddress("INCENTIVES_REWARD_TOKEN");
         address rewardsVault = vm.envAddress("INCENTIVES_REWARDS_VAULT");
+        address incentivesConfigAddr = vm.envAddress("INCENTIVES_CONFIG");
+        if (incentivesConfigAddr == address(0)) revert ZeroIncentivesConfig();
         uint256 distributionEndU = vm.envUint("INCENTIVES_DISTRIBUTION_END");
         if (distributionEndU > uint256(type(uint32).max)) revert DistributionEndOverflow();
         uint32 distributionEnd = uint32(distributionEndU);
@@ -106,8 +109,9 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
             new PullRewardsTransferStrategy(addrs.incentivesController, deployer, rewardsVault);
 
         // Build configs for all markets
+        IncentivesConfig incentivesConfig = IncentivesConfig(incentivesConfigAddr);
         IncentivesConfig.EmissionConfig[] memory emissions =
-            IncentivesConfig.getEmissionConfigs(IncentivesConfig.YEAR1_TOTAL);
+            incentivesConfig.getEmissionConfigs(incentivesConfig.YEAR1_TOTAL());
 
         RewardsDataTypes.RewardsConfigInput[] memory cfg =
             new RewardsDataTypes.RewardsConfigInput[](emissions.length * 2);
