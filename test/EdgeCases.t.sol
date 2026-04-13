@@ -2,8 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
+import {RiskParametersFixture} from "./RiskParametersFixture.sol";
+import {IRiskParametersConfig} from "../src/config/interface/IRiskParametersConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
-import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {OraclesConfig} from "../src/config/OraclesConfig.sol";
 
 /// @title MockOracleEdgeCases
@@ -36,42 +37,43 @@ contract MockOracleEdgeCases {
 
 /// @title EdgeCasesTest
 /// @notice Tests for edge cases and boundary conditions
-contract EdgeCasesTest is Test {
+contract EdgeCasesTest is RiskParametersFixture {
     MockOracleEdgeCases public oracle;
 
-    function setUp() public {
+    function setUp() public override {
+        super.setUp();
         oracle = new MockOracleEdgeCases();
     }
 
     function test_EmptyOracleVerification() public {
         // Configure oracles but don't set prices
-        OraclesConfig.configureOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
+        OraclesConfig.configureOracles(address(oracle), tokensRegistry, TokensConfig.Network.ArbitrumSepolia);
 
         (bool success, address[] memory invalidAssets) =
-            OraclesConfig.verifyOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
+            OraclesConfig.verifyOracles(address(oracle), tokensRegistry, TokensConfig.Network.ArbitrumSepolia);
 
         assertFalse(success, "Should fail when prices are zero");
         assertEq(invalidAssets.length, 5, "All assets should be invalid");
     }
 
     function test_PartialOracleVerification() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
-        OraclesConfig.configureOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
+        OraclesConfig.configureOracles(address(oracle), tokensRegistry, TokensConfig.Network.ArbitrumSepolia);
 
         // Set prices for only first 2 tokens
         oracle.setPrice(tokens[0].asset, 1000 * 1e8);
         oracle.setPrice(tokens[1].asset, 2000 * 1e8);
 
         (bool success, address[] memory invalidAssets) =
-            OraclesConfig.verifyOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
+            OraclesConfig.verifyOracles(address(oracle), tokensRegistry, TokensConfig.Network.ArbitrumSepolia);
 
         assertFalse(success, "Should fail when some prices are zero");
         assertEq(invalidAssets.length, 3, "Should have 3 invalid assets");
     }
 
     function test_AllTokensHaveNonZeroAddresses() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
         for (uint256 i = 0; i < tokens.length; i++) {
             assertNotEq(tokens[i].asset, address(0), "Token asset should not be zero");
@@ -79,8 +81,9 @@ contract EdgeCasesTest is Test {
         }
     }
 
-    function test_RiskParamsCapsAreNonZero() public {
-        RiskConfig.RiskParams[] memory params = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+    function test_RiskParamsCapsAreNonZero() public view {
+        IRiskParametersConfig.RiskParams[] memory params =
+            IRiskParametersConfig(address(risk)).getRiskParams(TokensConfig.Network.ArbitrumSepolia);
 
         for (uint256 i = 0; i < params.length; i++) {
             assertGt(params[i].borrowCap, 0, "Borrow cap should be greater than 0");
@@ -90,7 +93,7 @@ contract EdgeCasesTest is Test {
     }
 
     function test_TokenDecimalsAreValid() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
         for (uint256 i = 0; i < tokens.length; i++) {
             assertGt(tokens[i].decimals, 0, "Decimals should be greater than 0");
@@ -99,7 +102,7 @@ contract EdgeCasesTest is Test {
     }
 
     function test_TokenSymbolsAreNonEmpty() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
         for (uint256 i = 0; i < tokens.length; i++) {
             bytes memory symbolBytes = bytes(tokens[i].symbol);
@@ -108,13 +111,12 @@ contract EdgeCasesTest is Test {
         }
     }
 
-    function test_RiskParamsLiquidationThresholdSafety() public {
-        RiskConfig.RiskParams[] memory params = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+    function test_RiskParamsLiquidationThresholdSafety() public view {
+        IRiskParametersConfig.RiskParams[] memory params =
+            IRiskParametersConfig(address(risk)).getRiskParams(TokensConfig.Network.ArbitrumSepolia);
 
         for (uint256 i = 0; i < params.length; i++) {
-            // Safety check: liquidation threshold should be greater than LTV (already tested elsewhere)
-            // This test just verifies the difference is reasonable (at least 2.5%)
-            uint256 minLiquidationThreshold = params[i].ltv + (RiskConfig.BASIS_POINTS / 40); // 2.5%
+            uint256 minLiquidationThreshold = params[i].ltv + (risk.BASIS_POINTS() / 40);
             assertGe(
                 params[i].liquidationThreshold,
                 minLiquidationThreshold,
@@ -124,7 +126,7 @@ contract EdgeCasesTest is Test {
     }
 
     function test_MonadMainnetTokensHaveDeployedAddresses() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.MonadMainnet);
 
         for (uint256 i = 0; i < tokens.length; i++) {
             assertNotEq(tokens[i].asset, address(0), "Mainnet token asset should be set");

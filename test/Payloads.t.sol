@@ -11,6 +11,9 @@ import {
     ConfiguratorInputTypes
 } from "lib/K613-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
+import {RiskParametersConfig} from "../src/config/RiskParametersConfig.sol";
+import {TokensRegistry} from "../src/config/TokensRegistry.sol";
+import {ITokensRegistry} from "../src/config/interface/ITokensRegistry.sol";
 
 /// @title MockPoolConfigurator
 /// @notice Mock PoolConfigurator for testing payloads
@@ -86,36 +89,40 @@ contract MockAaveOracleForPayloads {
 contract PayloadsTest is Test {
     MockPoolConfigurator public mockConfigurator;
     MockAaveOracleForPayloads public mockOracle;
+    RiskParametersConfig public riskParameters;
+    ITokensRegistry public tokensRegistry;
     address public constant MOCK_POOL_CONFIGURATOR = address(0x1111);
     address public constant MOCK_ORACLE = address(0x2222);
 
     function setUp() public {
+        tokensRegistry = ITokensRegistry(address(new TokensRegistry(address(this))));
+        riskParameters = new RiskParametersConfig(address(this), address(tokensRegistry));
         mockConfigurator = new MockPoolConfigurator();
         mockOracle = new MockAaveOracleForPayloads();
     }
 
     function test_ListingPayloadDeployment() public {
-        ListingPayload payload = new ListingPayload();
+        ListingPayload payload = new ListingPayload(address(tokensRegistry));
         assertNotEq(address(payload), address(0), "Payload should be deployed");
     }
 
     function test_CollateralConfigPayloadDeployment() public {
-        CollateralConfigPayload payload = new CollateralConfigPayload();
+        CollateralConfigPayload payload = new CollateralConfigPayload(address(riskParameters), address(tokensRegistry));
         assertNotEq(address(payload), address(0), "Payload should be deployed");
     }
 
     function test_OracleUpdatePayloadDeployment() public {
-        OracleUpdatePayload payload = new OracleUpdatePayload();
+        OracleUpdatePayload payload = new OracleUpdatePayload(address(tokensRegistry));
         assertNotEq(address(payload), address(0), "Payload should be deployed");
     }
 
     function test_RiskUpdatePayloadDeployment() public {
-        RiskUpdatePayload payload = new RiskUpdatePayload();
+        RiskUpdatePayload payload = new RiskUpdatePayload(address(riskParameters));
         assertNotEq(address(payload), address(0), "Payload should be deployed");
     }
 
     function test_ListingPayloadExecuteWithMock() public {
-        ListingPayload payload = new ListingPayload();
+        ListingPayload payload = new ListingPayload(address(tokensRegistry));
 
         // Mock the network addresses - use actual address from ArbitrumSepolia
         address poolConfigurator = ArbitrumSepolia.getPoolConfigurator();
@@ -128,10 +135,11 @@ contract PayloadsTest is Test {
     }
 
     function test_PayloadsStructure() public {
-        ListingPayload listingPayload = new ListingPayload();
-        CollateralConfigPayload collateralPayload = new CollateralConfigPayload();
-        OracleUpdatePayload oraclePayload = new OracleUpdatePayload();
-        RiskUpdatePayload riskPayload = new RiskUpdatePayload();
+        ListingPayload listingPayload = new ListingPayload(address(tokensRegistry));
+        CollateralConfigPayload collateralPayload =
+            new CollateralConfigPayload(address(riskParameters), address(tokensRegistry));
+        OracleUpdatePayload oraclePayload = new OracleUpdatePayload(address(tokensRegistry));
+        RiskUpdatePayload riskPayload = new RiskUpdatePayload(address(riskParameters));
 
         assertNotEq(address(listingPayload), address(0), "ListingPayload should deploy");
         assertNotEq(address(collateralPayload), address(0), "CollateralPayload should deploy");
@@ -140,8 +148,8 @@ contract PayloadsTest is Test {
     }
 
     function test_PayloadsCanBeDeployedMultipleTimes() public {
-        ListingPayload payload1 = new ListingPayload();
-        ListingPayload payload2 = new ListingPayload();
+        ListingPayload payload1 = new ListingPayload(address(tokensRegistry));
+        ListingPayload payload2 = new ListingPayload(address(tokensRegistry));
 
         assertNotEq(address(payload1), address(payload2), "Each deployment should create new instance");
     }

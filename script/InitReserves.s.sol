@@ -12,6 +12,8 @@ import {
     ConfiguratorInputTypes
 } from "lib/K613-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
+import {TokensRegistry} from "../src/config/TokensRegistry.sol";
+import {ITokensRegistry} from "../src/config/interface/ITokensRegistry.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
@@ -49,7 +51,17 @@ contract InitReserves is Script, SimulationPrank {
         console.log("Initializing reserves (initReserves)...");
 
         NetworkConfig.Addresses memory addrs = _getAddresses();
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
+
+        address registryAddr;
+        try vm.envAddress("TOKENS_REGISTRY_CONFIG") returns (address reg) {
+            registryAddr = reg;
+        } catch {
+            TokensRegistry deployedRegistry = new TokensRegistry(deployer);
+            registryAddr = address(deployedRegistry);
+            console.log("Deployed TokensRegistry at:", registryAddr);
+        }
+        ITokensRegistry tokensRegistry = ITokensRegistry(registryAddr);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(NETWORK);
 
         address poolAddr = addrs.pool;
         if (poolAddr == address(0)) {

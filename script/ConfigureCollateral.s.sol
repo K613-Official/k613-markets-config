@@ -6,7 +6,8 @@ import {Script, console} from "lib/forge-std/src/Script.sol";
 import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
 import {IPoolAddressesProvider} from "lib/K613-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
-import {RiskConfig} from "../src/config/RiskConfig.sol";
+import {IRiskParametersConfig} from "../src/config/interface/IRiskParametersConfig.sol";
+import {ITokensRegistry} from "../src/config/interface/ITokensRegistry.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
@@ -22,6 +23,7 @@ contract ConfigureCollateral is Script, SimulationPrank {
     error PoolMismatch();
     error ConfiguratorMismatch();
     error TokensRiskLengthMismatch();
+    error ZeroRiskParameters();
     error TargetHasNoCode(string label);
 
     TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
@@ -73,8 +75,13 @@ contract ConfigureCollateral is Script, SimulationPrank {
 
         IPoolConfigurator configurator = IPoolConfigurator(configuratorAddress);
 
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
-        RiskConfig.RiskParams[] memory risks = RiskConfig.getRiskParams(NETWORK);
+        address riskParametersAddr = vm.envAddress("RISK_PARAMETERS_CONFIG");
+        if (riskParametersAddr == address(0)) revert ZeroRiskParameters();
+        IRiskParametersConfig riskParameters = IRiskParametersConfig(riskParametersAddr);
+        ITokensRegistry tokensRegistry = riskParameters.tokensRegistry();
+
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(NETWORK);
+        IRiskParametersConfig.RiskParams[] memory risks = riskParameters.getRiskParams(NETWORK);
 
         if (tokens.length != risks.length) revert TokensRiskLengthMismatch();
 
@@ -82,7 +89,7 @@ contract ConfigureCollateral is Script, SimulationPrank {
         uint256 failed;
 
         for (uint256 i = 0; i < tokens.length; i++) {
-            RiskConfig.RiskParams memory r = risks[i];
+            IRiskParametersConfig.RiskParams memory r = risks[i];
 
             console.log("--------------------------------------------------");
             console.log("Asset:", r.asset);

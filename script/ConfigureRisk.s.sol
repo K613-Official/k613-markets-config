@@ -3,8 +3,11 @@ pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
 import {RiskUpdatePayload} from "../src/payloads/RiskUpdatePayload.sol";
-import {RiskConfig} from "../src/config/RiskConfig.sol";
+import {RiskParametersConfig} from "../src/config/RiskParametersConfig.sol";
+import {IRiskParametersConfig} from "../src/config/interface/IRiskParametersConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
+import {TokensRegistry} from "../src/config/TokensRegistry.sol";
+import {ITokensRegistry} from "../src/config/interface/ITokensRegistry.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
@@ -17,6 +20,7 @@ import {SimulationPrank} from "./SimulationPrank.sol";
 contract ConfigureRisk is Script, SimulationPrank {
     error ZeroPoolAddressesProvider();
     error ZeroAclManager();
+    error ZeroRiskParameters();
 
     function run() external {
         address deployer;
@@ -41,8 +45,37 @@ contract ConfigureRisk is Script, SimulationPrank {
         console.log("Deployer address:", deployer);
         console.log("Executing RiskUpdatePayload...");
 
-        // Deploy RiskUpdatePayload (stateless, execute-only payload)
-        RiskUpdatePayload riskUpdatePayload = new RiskUpdatePayload();
+        address registryAddr;
+        bool registryFromEnv;
+        try vm.envAddress("TOKENS_REGISTRY_CONFIG") returns (address reg) {
+            registryAddr = reg;
+            registryFromEnv = true;
+        } catch {
+            registryFromEnv = false;
+        }
+
+        address riskParametersAddr;
+        bool riskFromEnv;
+        try vm.envAddress("RISK_PARAMETERS_CONFIG") returns (address configured) {
+            riskParametersAddr = configured;
+            riskFromEnv = true;
+        } catch {
+            riskFromEnv = false;
+        }
+
+        if (!riskFromEnv) {
+            if (!registryFromEnv) {
+                TokensRegistry deployedRegistry = new TokensRegistry(deployer);
+                registryAddr = address(deployedRegistry);
+                console.log("Deployed TokensRegistry at:", registryAddr);
+            }
+            RiskParametersConfig deployed = new RiskParametersConfig(deployer, registryAddr);
+            riskParametersAddr = address(deployed);
+            console.log("Deployed RiskParametersConfig at:", riskParametersAddr);
+        }
+        if (riskParametersAddr == address(0)) revert ZeroRiskParameters();
+
+        RiskUpdatePayload riskUpdatePayload = new RiskUpdatePayload(riskParametersAddr);
         console.log("RiskUpdatePayload deployed at:", address(riskUpdatePayload));
 
         // Get tokens to display what will be configured
@@ -63,8 +96,10 @@ contract ConfigureRisk is Script, SimulationPrank {
             aclManager.addRiskAdmin(address(riskUpdatePayload));
         }
         _endSimulationPrank(prank);
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(network);
-        RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(network);
+        ITokensRegistry reg = IRiskParametersConfig(riskParametersAddr).tokensRegistry();
+        TokensConfig.Token[] memory tokens = reg.getTokens(network);
+        IRiskParametersConfig.RiskParams[] memory riskParams =
+            IRiskParametersConfig(riskParametersAddr).getRiskParams(network);
 
         console.log("Updating risk parameters for", tokens.length, "tokens...");
 

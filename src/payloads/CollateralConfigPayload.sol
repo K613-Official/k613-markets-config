@@ -3,7 +3,8 @@ pragma solidity ^0.8.30;
 
 import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
 import {TokensConfig} from "../config/TokensConfig.sol";
-import {RiskConfig} from "../config/RiskConfig.sol";
+import {IRiskParametersConfig} from "../config/interface/IRiskParametersConfig.sol";
+import {ITokensRegistry} from "../config/interface/ITokensRegistry.sol";
 import {NetworkConfig} from "../config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../config/networks/MonadMainnet.sol";
@@ -14,21 +15,31 @@ import {MonadMainnet} from "../config/networks/MonadMainnet.sol";
 /// @dev Switch `NETWORK` to target another deployment.
 contract CollateralConfigPayload {
     error RiskParamsLengthMismatch();
+    error ZeroRiskParameters();
+    error ZeroTokensRegistry();
 
-    /// @notice Active deployment for this payload bytecode.
+    IRiskParametersConfig public immutable riskParameters;
+    ITokensRegistry public immutable tokensRegistry;
+
     TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
-    /// @notice Applies risk-derived collateral settings and turns on variable-rate borrowing.
+    constructor(address riskParameters_, address tokensRegistry_) {
+        if (riskParameters_ == address(0)) revert ZeroRiskParameters();
+        if (tokensRegistry_ == address(0)) revert ZeroTokensRegistry();
+        riskParameters = IRiskParametersConfig(riskParameters_);
+        tokensRegistry = ITokensRegistry(tokensRegistry_);
+    }
+
     function execute() external {
         NetworkConfig.Addresses memory addrs = _getAddresses();
         IPoolConfigurator configurator = IPoolConfigurator(NetworkConfig.getPoolConfigurator(addrs));
 
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
-        RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(NETWORK);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(NETWORK);
+        IRiskParametersConfig.RiskParams[] memory riskParams = riskParameters.getRiskParams(NETWORK);
         if (riskParams.length != tokens.length) revert RiskParamsLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length; i++) {
-            RiskConfig.RiskParams memory risk = riskParams[i];
+            IRiskParametersConfig.RiskParams memory risk = riskParams[i];
 
             // Configure as collateral (LTV, liquidation threshold, liquidation bonus)
             configurator.configureReserveAsCollateral(

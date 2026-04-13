@@ -2,25 +2,26 @@
 pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
+import {RiskParametersFixture} from "./RiskParametersFixture.sol";
+import {IRiskParametersConfig} from "../src/config/interface/IRiskParametersConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
-import {RiskConfig} from "../src/config/RiskConfig.sol";
 
 /// @title TokensConfigExtendedTest
 /// @notice Extended tests to improve branch coverage
-contract TokensConfigExtendedTest is Test {
+contract TokensConfigExtendedTest is RiskParametersFixture {
     function test_TokensConfigArbitrumSepoliaBranch() public view {
         // Test ArbitrumSepolia branch
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
         assertEq(tokens.length, 5, "ArbitrumSepolia should return 5 tokens");
     }
 
     function test_TokensConfigMonadMainnetBranch() public view {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.MonadMainnet);
         assertEq(tokens.length, 11, "MonadMainnet should return 11 tokens");
     }
 
     function test_ArbitrumSepoliaTokensHaveCorrectStructure() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
         // Verify all tokens have correct structure
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -32,7 +33,7 @@ contract TokensConfigExtendedTest is Test {
     }
 
     function test_MonadMainnetTokensHaveDeployedStructure() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.MonadMainnet);
 
         assertEq(tokens.length, 11);
 
@@ -45,7 +46,7 @@ contract TokensConfigExtendedTest is Test {
     }
 
     function test_TokenSymbolsMatchExpected() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
         string[5] memory expectedSymbols = ["WETH", "USDC", "USDT", "DAI", "BTC"];
 
@@ -59,7 +60,7 @@ contract TokensConfigExtendedTest is Test {
     }
 
     function test_TokenDecimalsMatchExpected() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
         uint8[5] memory expectedDecimals = [18, 6, 6, 18, 8];
 
@@ -72,11 +73,13 @@ contract TokensConfigExtendedTest is Test {
         }
     }
 
-    function test_SharedSymbolsMatchAcrossNetworks() public pure {
-        TokensConfig.Token[] memory arbitrumTokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
-        TokensConfig.Token[] memory monadTokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
-        RiskConfig.RiskParams[] memory arbitrumParams = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
-        RiskConfig.RiskParams[] memory monadParams = RiskConfig.getRiskParams(TokensConfig.Network.MonadMainnet);
+    function test_SharedSymbolsMatchAcrossNetworks() public view {
+        TokensConfig.Token[] memory arbitrumTokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory monadTokens = tokensRegistry.getTokens(TokensConfig.Network.MonadMainnet);
+        IRiskParametersConfig.RiskParams[] memory arbitrumParams =
+            IRiskParametersConfig(address(risk)).getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+        IRiskParametersConfig.RiskParams[] memory monadParams =
+            IRiskParametersConfig(address(risk)).getRiskParams(TokensConfig.Network.MonadMainnet);
 
         assertEq(arbitrumTokens.length, 5);
         assertEq(monadTokens.length, 11);

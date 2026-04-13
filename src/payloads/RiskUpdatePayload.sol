@@ -2,25 +2,32 @@
 pragma solidity ^0.8.30;
 
 import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
-import {RiskConfig} from "../config/RiskConfig.sol";
+import {IRiskParametersConfig} from "../config/interface/IRiskParametersConfig.sol";
 import {TokensConfig} from "../config/TokensConfig.sol";
 import {NetworkConfig} from "../config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../config/networks/MonadMainnet.sol";
 
 /// @title RiskUpdatePayload
-/// @notice Updates borrow caps, supply caps, and reserve factors from `RiskConfig`.
-/// @dev Stateless governance payload; switch `NETWORK` for other deployments.
+/// @notice Updates borrow caps, supply caps, and reserve factors from `IRiskParametersConfig`.
+/// @dev Governance payload; switch `NETWORK` for other deployments.
 contract RiskUpdatePayload {
-    /// @notice Active deployment for this payload bytecode.
+    error ZeroRiskParameters();
+
+    IRiskParametersConfig public immutable riskParameters;
+
     TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
-    /// @notice Applies caps and reserve factor per asset on the configured network.
+    constructor(address riskParameters_) {
+        if (riskParameters_ == address(0)) revert ZeroRiskParameters();
+        riskParameters = IRiskParametersConfig(riskParameters_);
+    }
+
     function execute() external {
         NetworkConfig.Addresses memory addrs = _getAddresses();
         IPoolConfigurator configurator = IPoolConfigurator(NetworkConfig.getPoolConfigurator(addrs));
 
-        RiskConfig.RiskParams[] memory params = RiskConfig.getRiskParams(NETWORK);
+        IRiskParametersConfig.RiskParams[] memory params = riskParameters.getRiskParams(NETWORK);
 
         for (uint256 i = 0; i < params.length; i++) {
             configurator.setBorrowCap(params[i].asset, params[i].borrowCap);

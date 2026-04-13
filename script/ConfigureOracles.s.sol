@@ -5,6 +5,8 @@ import {Script, console} from "forge-std/Script.sol";
 import {SimulationPrank} from "./SimulationPrank.sol";
 import {OraclesConfig} from "../src/config/OraclesConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
+import {TokensRegistry} from "../src/config/TokensRegistry.sol";
+import {ITokensRegistry} from "../src/config/interface/ITokensRegistry.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 
@@ -37,19 +39,27 @@ contract ConfigureOracles is Script, SimulationPrank {
         console.log("Deployer address:", deployer);
         console.log("Configuring oracles...");
 
+        address registryAddr;
+        try vm.envAddress("TOKENS_REGISTRY_CONFIG") returns (address reg) {
+            registryAddr = reg;
+        } catch {
+            TokensRegistry deployedRegistry = new TokensRegistry(deployer);
+            registryAddr = address(deployedRegistry);
+            console.log("Deployed TokensRegistry at:", registryAddr);
+        }
+        ITokensRegistry tokensRegistry = ITokensRegistry(registryAddr);
+
         address oracleAddress = _getOracle();
 
-        // Configure oracles directly via deployer
-        // Deployer must have Pool Admin or Asset Listing Admin rights
         console.log("Configuring price feeds...");
         bool prank = _beginSimulationPrank();
-        OraclesConfig.configureOracles(oracleAddress, NETWORK);
+        OraclesConfig.configureOracles(oracleAddress, tokensRegistry, NETWORK);
         _endSimulationPrank(prank);
         console.log("Oracles configured successfully!");
 
-        // Verify oracles using OraclesConfig library
         console.log("Verifying oracles...");
-        (bool success, address[] memory invalidAssets) = OraclesConfig.verifyOracles(oracleAddress, NETWORK);
+        (bool success, address[] memory invalidAssets) =
+            OraclesConfig.verifyOracles(oracleAddress, tokensRegistry, NETWORK);
 
         if (success) {
             console.log("All oracles configured successfully!");

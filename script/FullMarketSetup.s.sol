@@ -13,6 +13,9 @@ import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 import {IPoolAddressesProvider} from "lib/K613-Protocol/src/contracts/interfaces/IPoolAddressesProvider.sol";
 import {IACLManager} from "lib/K613-Protocol/src/contracts/interfaces/IACLManager.sol";
 import {SimulationPrank} from "./SimulationPrank.sol";
+import {RiskParametersConfig} from "../src/config/RiskParametersConfig.sol";
+import {IRiskParametersConfig} from "../src/config/interface/IRiskParametersConfig.sol";
+import {TokensRegistry} from "../src/config/TokensRegistry.sol";
 
 /// @title FullMarketSetup
 /// @notice Complete market setup script executing all payloads in correct order
@@ -47,12 +50,46 @@ contract FullMarketSetup is Script, SimulationPrank {
         console.log("Deployer address:", deployer);
         console.log("Starting full market setup...\n");
 
+        address registryAddr;
+        bool registryFromEnv;
+        try vm.envAddress("TOKENS_REGISTRY_CONFIG") returns (address reg) {
+            registryAddr = reg;
+            registryFromEnv = true;
+        } catch {
+            registryFromEnv = false;
+        }
+
+        address riskParametersAddr;
+        bool riskFromEnv;
+        try vm.envAddress("RISK_PARAMETERS_CONFIG") returns (address configured) {
+            riskParametersAddr = configured;
+            riskFromEnv = true;
+        } catch {
+            riskFromEnv = false;
+        }
+
+        if (!registryFromEnv) {
+            if (riskFromEnv) {
+                registryAddr = address(IRiskParametersConfig(riskParametersAddr).tokensRegistry());
+            } else {
+                TokensRegistry deployedRegistry = new TokensRegistry(deployer);
+                registryAddr = address(deployedRegistry);
+                console.log("Deployed TokensRegistry at:", registryAddr);
+            }
+        }
+
+        if (!riskFromEnv) {
+            RiskParametersConfig deployed = new RiskParametersConfig(deployer, registryAddr);
+            riskParametersAddr = address(deployed);
+            console.log("Deployed RiskParametersConfig at:", riskParametersAddr);
+        }
+
         // Resolve ACLManager
         NetworkConfig.Addresses memory addrs = _getAddresses();
         IACLManager aclManager = IACLManager(IPoolAddressesProvider(addrs.poolAddressesProvider).getACLManager());
 
         console.log("=== Step 1: Configuring Oracles ===");
-        OracleUpdatePayload oraclePayload = new OracleUpdatePayload();
+        OracleUpdatePayload oraclePayload = new OracleUpdatePayload(registryAddr);
         console.log("OracleUpdatePayload deployed at:", address(oraclePayload));
         bool prank = _beginSimulationPrank();
         aclManager.addAssetListingAdmin(address(oraclePayload));
@@ -62,7 +99,7 @@ contract FullMarketSetup is Script, SimulationPrank {
         console.log("Oracles configured successfully!\n");
 
         console.log("=== Step 2: Initializing Reserves (Listing) ===");
-        ListingPayload listingPayload = new ListingPayload();
+        ListingPayload listingPayload = new ListingPayload(registryAddr);
         console.log("ListingPayload deployed at:", address(listingPayload));
         prank = _beginSimulationPrank();
         aclManager.addAssetListingAdmin(address(listingPayload));
@@ -72,7 +109,7 @@ contract FullMarketSetup is Script, SimulationPrank {
         console.log("Reserves initialized successfully!\n");
 
         console.log("=== Step 3: Configuring Collateral Parameters ===");
-        CollateralConfigPayload collateralPayload = new CollateralConfigPayload();
+        CollateralConfigPayload collateralPayload = new CollateralConfigPayload(riskParametersAddr, registryAddr);
         console.log("CollateralConfigPayload deployed at:", address(collateralPayload));
         prank = _beginSimulationPrank();
         aclManager.addRiskAdmin(address(collateralPayload));
@@ -82,7 +119,7 @@ contract FullMarketSetup is Script, SimulationPrank {
         console.log("Collateral parameters configured successfully!\n");
 
         console.log("=== Step 4: Configuring Risk Parameters ===");
-        RiskUpdatePayload riskPayload = new RiskUpdatePayload();
+        RiskUpdatePayload riskPayload = new RiskUpdatePayload(riskParametersAddr);
         console.log("RiskUpdatePayload deployed at:", address(riskPayload));
         prank = _beginSimulationPrank();
         aclManager.addRiskAdmin(address(riskPayload));

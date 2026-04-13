@@ -9,6 +9,7 @@ import {
     ConfiguratorInputTypes
 } from "lib/K613-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
 import {TokensConfig} from "../config/TokensConfig.sol";
+import {ITokensRegistry} from "../config/interface/ITokensRegistry.sol";
 import {NetworkConfig} from "../config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../config/networks/MonadMainnet.sol";
@@ -18,13 +19,20 @@ import {MonadMainnet} from "../config/networks/MonadMainnet.sol";
 /// @dev Stateless, execute-only. Use `CollateralConfigPayload` and `RiskUpdatePayload` for further steps.
 /// @dev Switch `NETWORK` to target another deployment.
 contract ListingPayload {
-    /// @notice Active deployment for this payload bytecode.
+    error ZeroTokensRegistry();
+
+    ITokensRegistry public immutable tokensRegistry;
+
     TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
 
-    /// @notice Initializes all configured reserves with per-asset interest-rate data.
+    constructor(address tokensRegistry_) {
+        if (tokensRegistry_ == address(0)) revert ZeroTokensRegistry();
+        tokensRegistry = ITokensRegistry(tokensRegistry_);
+    }
+
     function execute() external {
         NetworkConfig.Addresses memory addrs = _getAddresses();
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(NETWORK);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(NETWORK);
 
         ConfiguratorInputTypes.InitReserveInput[] memory inputs =
             new ConfiguratorInputTypes.InitReserveInput[](tokens.length);
@@ -66,6 +74,8 @@ contract ListingPayload {
     }
 
     /// @notice Keccak256 over the UTF-8 bytes of a string.
+    /// @param str Input string.
+    /// @return hash `keccak256` of input contents.
     function _hashString(string memory str) private pure returns (bytes32 hash) {
         assembly {
             hash := keccak256(add(str, 0x20), mload(str))

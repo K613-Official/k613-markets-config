@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {OraclesConfig} from "../src/config/OraclesConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
+import {TokensRegistry} from "../src/config/TokensRegistry.sol";
+import {ITokensRegistry} from "../src/config/interface/ITokensRegistry.sol";
 
-/// @title MockAaveOracle
-/// @notice Mock oracle for testing
 contract MockAaveOracle {
     error ArrayLengthMismatch();
 
@@ -17,8 +17,7 @@ contract MockAaveOracle {
         if (assets.length != _sources.length) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < assets.length; i++) {
             sources[assets[i]] = _sources[i];
-            // Set a mock price
-            prices[assets[i]] = 1000 * 1e8; // Mock price
+            prices[assets[i]] = 1000 * 1e8;
         }
     }
 
@@ -35,21 +34,20 @@ contract MockAaveOracle {
     }
 }
 
-/// @title OraclesConfigTest
-/// @notice Tests for OraclesConfig library
 contract OraclesConfigTest is Test {
     MockAaveOracle public oracle;
+    ITokensRegistry public tokensRegistry;
 
     function setUp() public {
         oracle = new MockAaveOracle();
+        tokensRegistry = ITokensRegistry(address(new TokensRegistry(address(this))));
     }
 
     function test_ConfigureOracles() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
-        OraclesConfig.configureOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
+        OraclesConfig.configureOracles(address(oracle), tokensRegistry, TokensConfig.Network.ArbitrumSepolia);
 
-        // Verify all sources are set
         for (uint256 i = 0; i < tokens.length; i++) {
             address source = oracle.getSourceOfAsset(tokens[i].asset);
             assertEq(source, tokens[i].priceFeed, "Price feed source should match");
@@ -57,37 +55,31 @@ contract OraclesConfigTest is Test {
     }
 
     function test_VerifyOraclesWithValidPrices() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
-        // Configure oracles
-        OraclesConfig.configureOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
+        OraclesConfig.configureOracles(address(oracle), tokensRegistry, TokensConfig.Network.ArbitrumSepolia);
 
-        // Set prices for all assets
         for (uint256 i = 0; i < tokens.length; i++) {
             oracle.setPrice(tokens[i].asset, 1000 * 1e8);
         }
 
-        // Verify
         (bool success, address[] memory invalidAssets) =
-            OraclesConfig.verifyOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
+            OraclesConfig.verifyOracles(address(oracle), tokensRegistry, TokensConfig.Network.ArbitrumSepolia);
 
         assertTrue(success, "Verification should succeed");
         assertEq(invalidAssets.length, 0, "Should have no invalid assets");
     }
 
     function test_VerifyOraclesWithInvalidPrices() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
-        // Configure oracles
-        OraclesConfig.configureOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
+        OraclesConfig.configureOracles(address(oracle), tokensRegistry, TokensConfig.Network.ArbitrumSepolia);
 
-        // Set some prices to zero
         oracle.setPrice(tokens[0].asset, 0);
         oracle.setPrice(tokens[1].asset, 0);
 
-        // Verify
         (bool success, address[] memory invalidAssets) =
-            OraclesConfig.verifyOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
+            OraclesConfig.verifyOracles(address(oracle), tokensRegistry, TokensConfig.Network.ArbitrumSepolia);
 
         assertFalse(success, "Verification should fail");
         assertEq(invalidAssets.length, 2, "Should have 2 invalid assets");
@@ -96,9 +88,9 @@ contract OraclesConfigTest is Test {
     }
 
     function test_GetPriceFeedSource() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
-        OraclesConfig.configureOracles(address(oracle), TokensConfig.Network.ArbitrumSepolia);
+        OraclesConfig.configureOracles(address(oracle), tokensRegistry, TokensConfig.Network.ArbitrumSepolia);
 
         for (uint256 i = 0; i < tokens.length; i++) {
             address source = OraclesConfig.getPriceFeedSource(address(oracle), tokens[i].asset);
@@ -107,10 +99,8 @@ contract OraclesConfigTest is Test {
     }
 
     function test_ConfigureOraclesForMonadMainnet() public {
-        // Should not revert even with placeholder addresses
-        OraclesConfig.configureOracles(address(oracle), TokensConfig.Network.MonadMainnet);
+        OraclesConfig.configureOracles(address(oracle), tokensRegistry, TokensConfig.Network.MonadMainnet);
 
-        // Verify it was called (no revert means success)
         assertTrue(true, "Should not revert");
     }
 }

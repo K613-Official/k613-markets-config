@@ -12,18 +12,19 @@ import {
 import {
     ConfiguratorInputTypes
 } from "lib/K613-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
+import {RiskParametersFixture} from "./RiskParametersFixture.sol";
+import {IRiskParametersConfig} from "../src/config/interface/IRiskParametersConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
-import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 
 /// @title PayloadsInternalTest
 /// @notice Tests for payload internal logic and data preparation
-contract PayloadsInternalTest is Test {
+contract PayloadsInternalTest is RiskParametersFixture {
     function test_ListingPayloadDataPreparation() public view {
         // Test that ListingPayload would prepare correct data
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
         NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
 
         // Verify data that would be used by ListingPayload
@@ -34,9 +35,9 @@ contract PayloadsInternalTest is Test {
     }
 
     function test_CollateralConfigPayloadDataPreparation() public view {
-        // Test that CollateralConfigPayload would prepare correct data
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
-        RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        IRiskParametersConfig.RiskParams[] memory riskParams =
+            IRiskParametersConfig(address(risk)).getRiskParams(TokensConfig.Network.ArbitrumSepolia);
 
         // Verify data consistency
         assertEq(tokens.length, riskParams.length, "Tokens and risk params should match");
@@ -49,7 +50,7 @@ contract PayloadsInternalTest is Test {
 
     function test_OracleUpdatePayloadDataPreparation() public view {
         // Test that OracleUpdatePayload would prepare correct data
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
         NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
 
         // Verify oracle and price feeds
@@ -62,8 +63,8 @@ contract PayloadsInternalTest is Test {
     }
 
     function test_RiskUpdatePayloadDataPreparation() public view {
-        // Test that RiskUpdatePayload would prepare correct data
-        RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+        IRiskParametersConfig.RiskParams[] memory riskParams =
+            IRiskParametersConfig(address(risk)).getRiskParams(TokensConfig.Network.ArbitrumSepolia);
 
         // Verify risk params for updates
         assertGt(riskParams.length, 0, "Should have risk params");
@@ -87,7 +88,7 @@ contract PayloadsInternalTest is Test {
 
     function test_ListingPayloadInterestRateDataPreparation() public view {
         NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
         bytes memory interestRateData = _defaultInterestRateData();
 
         assertNotEq(addrs.defaultInterestRateStrategy, address(0), "Interest rate strategy should be set");
@@ -99,11 +100,13 @@ contract PayloadsInternalTest is Test {
         }
     }
 
-    function test_PayloadsNetworkConsistency() public pure {
-        TokensConfig.Token[] memory arbitrumTokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
-        TokensConfig.Token[] memory monadTokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
-        RiskConfig.RiskParams[] memory arbitrumParams = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
-        RiskConfig.RiskParams[] memory monadParams = RiskConfig.getRiskParams(TokensConfig.Network.MonadMainnet);
+    function test_PayloadsNetworkConsistency() public view {
+        TokensConfig.Token[] memory arbitrumTokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory monadTokens = tokensRegistry.getTokens(TokensConfig.Network.MonadMainnet);
+        IRiskParametersConfig.RiskParams[] memory arbitrumParams =
+            IRiskParametersConfig(address(risk)).getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+        IRiskParametersConfig.RiskParams[] memory monadParams =
+            IRiskParametersConfig(address(risk)).getRiskParams(TokensConfig.Network.MonadMainnet);
 
         assertEq(arbitrumTokens.length, 5);
         assertEq(monadTokens.length, 11);
@@ -127,7 +130,7 @@ contract PayloadsInternalTest is Test {
     }
 
     function test_ListingPayloadInitReserveInputStructure() public view {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
         NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
 
         // Create inputs as ListingPayload would

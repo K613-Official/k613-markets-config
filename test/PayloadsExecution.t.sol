@@ -12,37 +12,38 @@ import {
 import {
     ConfiguratorInputTypes
 } from "lib/K613-Protocol/src/contracts/protocol/libraries/types/ConfiguratorInputTypes.sol";
+import {RiskParametersFixture} from "./RiskParametersFixture.sol";
+import {IRiskParametersConfig} from "../src/config/interface/IRiskParametersConfig.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
-import {RiskConfig} from "../src/config/RiskConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
 import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 
 /// @title PayloadsExecutionTest
 /// @notice Tests for payload execution logic and data structure validation
-contract PayloadsExecutionTest is Test {
+contract PayloadsExecutionTest is RiskParametersFixture {
     function test_ListingPayloadDeploys() public {
-        ListingPayload payload = new ListingPayload();
+        ListingPayload payload = new ListingPayload(address(tokensRegistry));
         assertNotEq(address(payload), address(0), "Payload should deploy");
     }
 
     function test_CollateralConfigPayloadDeploys() public {
-        CollateralConfigPayload payload = new CollateralConfigPayload();
+        CollateralConfigPayload payload = new CollateralConfigPayload(address(risk), address(tokensRegistry));
         assertNotEq(address(payload), address(0), "Payload should deploy");
     }
 
     function test_OracleUpdatePayloadDeploys() public {
-        OracleUpdatePayload payload = new OracleUpdatePayload();
+        OracleUpdatePayload payload = new OracleUpdatePayload(address(tokensRegistry));
         assertNotEq(address(payload), address(0), "Payload should deploy");
     }
 
     function test_RiskUpdatePayloadDeploys() public {
-        RiskUpdatePayload payload = new RiskUpdatePayload();
+        RiskUpdatePayload payload = new RiskUpdatePayload(address(risk));
         assertNotEq(address(payload), address(0), "Payload should deploy");
     }
 
     function test_ListingPayloadCreatesCorrectInitReserveInputs() public view {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
         NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
 
         // Verify that inputs would be created correctly (same logic as ListingPayload)
@@ -83,8 +84,9 @@ contract PayloadsExecutionTest is Test {
     }
 
     function test_CollateralConfigPayloadDataConsistency() public view {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
-        RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        IRiskParametersConfig.RiskParams[] memory riskParams =
+            IRiskParametersConfig(address(risk)).getRiskParams(TokensConfig.Network.ArbitrumSepolia);
 
         // Verify structure matches
         assertEq(tokens.length, riskParams.length, "Tokens and risk params should match");
@@ -103,7 +105,8 @@ contract PayloadsExecutionTest is Test {
     }
 
     function test_RiskUpdatePayloadDataConsistency() public view {
-        RiskConfig.RiskParams[] memory riskParams = RiskConfig.getRiskParams(TokensConfig.Network.ArbitrumSepolia);
+        IRiskParametersConfig.RiskParams[] memory riskParams =
+            IRiskParametersConfig(address(risk)).getRiskParams(TokensConfig.Network.ArbitrumSepolia);
 
         // Verify all risk params have valid values for risk updates
         for (uint256 i = 0; i < riskParams.length; i++) {
@@ -115,7 +118,7 @@ contract PayloadsExecutionTest is Test {
     }
 
     function test_OracleUpdatePayloadDataConsistency() public view {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
         NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
 
         // Verify oracle address is set
@@ -150,7 +153,7 @@ contract PayloadsExecutionTest is Test {
     }
 
     function test_ListingPayloadTokenNamesFormat() public view {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+        TokensConfig.Token[] memory tokens = tokensRegistry.getTokens(TokensConfig.Network.ArbitrumSepolia);
 
         for (uint256 i = 0; i < tokens.length; i++) {
             string memory aTokenName = string.concat("Aave ", tokens[i].symbol);
