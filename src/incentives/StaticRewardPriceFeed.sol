@@ -36,7 +36,7 @@ contract StaticRewardPriceFeed is AggregatorInterface {
         return desc;
     }
 
-    /// @notice Returns synthetic round data for compatibility with legacy aggregators.
+    /// @notice Returns synthetic round data for compatibility with legacy aggregators; ignores the requested round id.
     /// @return roundId Fixed round identifier.
     /// @return answer Static latest answer.
     /// @return startedAt Block timestamp placeholder.

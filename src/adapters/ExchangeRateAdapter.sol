@@ -21,9 +21,9 @@ contract ExchangeRateAdapter is AggregatorInterface {
     string private _description;
 
     /// @notice Deploys adapter for token/MON and MON/USD feeds.
-    /// @param _exchangeRateFeed Chainlink feed returning token/MON exchange rate
-    /// @param _monUsdFeed Chainlink MON/USD price feed
-    /// @param description_ Human-readable adapter description.
+    /// @param _exchangeRateFeed Chainlink-style feed returning the asset per MON unit.
+    /// @param _monUsdFeed Chainlink-style MON/USD price feed.
+    /// @param description_ Human-readable adapter description for tooling.
 
     constructor(address _exchangeRateFeed, address _monUsdFeed, string memory description_) {
         if (_exchangeRateFeed == ZERO_ADDRESS) revert ZeroExchangeRateFeed();

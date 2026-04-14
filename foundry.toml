@@ -11,4 +11,7 @@ via_ir = true
 fuzz = { runs = 256 }
 invariant = { runs = 256 }
 
+[fmt]
+docs_style = "line"
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

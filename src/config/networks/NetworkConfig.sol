@@ -5,7 +5,7 @@ import {IPoolAddressesProvider} from "lib/K613-Protocol/src/contracts/interfaces
 
 /// @title NetworkConfig
 /// @notice Shared helpers and the canonical address bundle for a deployment.
-/// @dev Per-chain constants live in `ArbitrumSepolia`, `MonadMainnet`, etc.
+/// @dev Per-chain constants live in `MonadMainnet`.
 library NetworkConfig {
     /// @notice Core protocol addresses required by listing and maintenance scripts.
     struct Addresses {
@@ -27,6 +27,8 @@ library NetworkConfig {
         address incentivesController;
         /// @notice Default borrow interest rate strategy for new reserves.
         address defaultInterestRateStrategy;
+        /// @notice `AaveV3ConfigEngine` instance used as `delegatecall` target by payloads.
+        address configEngine;
     }
 
     /// @notice Resolves the pool configurator, preferring an explicit address when set.

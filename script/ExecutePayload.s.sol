@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.30;
+
+import {Script, console} from "forge-std/Script.sol";
+import {K613PayloadMonad} from "../src/payloads/K613PayloadMonad.sol";
+import {K613Monad_InitialListing} from "../src/payloads/K613Monad_InitialListing.sol";
+import {K613Monad_ConfigureEModes} from "../src/payloads/K613Monad_ConfigureEModes.sol";
+
+/// @title ExecutePayload
+/// @notice Deploys and executes any `K613PayloadMonad` subclass registered below.
+/// @dev Env var `PAYLOAD` selects which payload to run. Caller must hold the relevant ACL roles
+///      (typically `POOL_ADMIN` and/or `RISK_ADMIN`).
+///      Supported values:
+///        - "InitialListing"    → K613Monad_InitialListing
+///        - "ConfigureEModes"   → K613Monad_ConfigureEModes
+contract ExecutePayload is Script {
+    /// @notice `PAYLOAD` did not match a registered payload name.
+    error UnknownPayload(string name);
+
+    /// @notice Deploys the selected `K613PayloadMonad` and calls `execute` in one broadcast.
+    function run() external {
+        string memory name = vm.envString("PAYLOAD");
+
+        vm.startBroadcast();
+
+        K613PayloadMonad payload;
+        bytes32 h = keccak256(bytes(name));
+        if (h == keccak256("InitialListing")) {
+            payload = new K613Monad_InitialListing();
+        } else if (h == keccak256("ConfigureEModes")) {
+            payload = new K613Monad_ConfigureEModes();
+        } else {
+            revert UnknownPayload(name);
+        }
+
+        console.log("Payload:", name);
+        console.log("Deployed at:", address(payload));
+
+        payload.execute();
+        console.log("Executed.");
+
+        vm.stopBroadcast();
+    }
+}

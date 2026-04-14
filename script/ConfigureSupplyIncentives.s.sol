@@ -16,13 +16,14 @@ import {AggregatorInterface} from "lib/K613-Protocol/src/contracts/dependencies/
 import {IRewardsDistributor} from "lib/K613-Protocol/src/contracts/rewards/interfaces/IRewardsDistributor.sol";
 import {StaticRewardPriceFeed} from "../src/incentives/StaticRewardPriceFeed.sol";
 import {IncentivesConfig} from "../src/incentives/IncentivesConfig.sol";
-import {TokensConfig} from "../src/config/TokensConfig.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
-import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 import {SimulationPrank} from "./SimulationPrank.sol";
 
+/// @title IOwnable
+/// @notice Minimal ownable surface used by incentive scripts.
 interface IOwnable {
+    /// @notice Returns the contract owner address.
     function owner() external view returns (address);
 }
 
@@ -35,19 +36,28 @@ interface IOwnable {
 ///   INCENTIVES_REWARD_ORACLE_ANSWER  — xK613 price in USD (default: 800000 = $0.008, 8 decimals)
 ///   INCENTIVES_REWARD_ORACLE_DECIMALS — oracle decimals (default: 8)
 contract ConfigureSupplyIncentives is Script, SimulationPrank {
+    /// @notice `INCENTIVES_DISTRIBUTION_END` does not fit uint32.
     error DistributionEndOverflow();
+    /// @notice Distribution end is not strictly in the future.
     error DistributionEndInPast();
+    /// @notice Configured oracle answer was non-positive.
     error InvalidOracleAnswer();
+    /// @notice Incentives controller address resolved to zero.
     error ZeroIncentivesController();
+    /// @notice Pool address resolved to zero.
     error ZeroPool();
+    /// @notice Emission manager address resolved to zero.
     error ZeroEmissionManager();
+    /// @notice Emission admin must be assigned before configuring emissions.
     error SetEmissionAdminFirst();
+    /// @notice Caller is not emission admin for the reward token.
     error NotEmissionAdmin();
+    /// @notice Pool data did not contain a reserve for the requested symbol.
     error ReserveNotListed(string symbol);
+    /// @notice `INCENTIVES_CONFIG` env was zero address.
     error ZeroIncentivesConfig();
 
-    TokensConfig.Network internal constant NETWORK = TokensConfig.Network.MonadMainnet;
-
+    /// @notice Configures xK613 emissions on all listed reserves per `IncentivesConfig` weights.
     function run() external {
         address deployer;
         uint256 pk;
@@ -81,7 +91,7 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
         if (oracleAnswer <= 0) revert InvalidOracleAnswer();
         uint8 oracleDecimals = uint8(vm.envOr("INCENTIVES_REWARD_ORACLE_DECIMALS", uint256(8)));
 
-        NetworkConfig.Addresses memory addrs = _getAddresses();
+        NetworkConfig.Addresses memory addrs = MonadMainnet.getAddresses();
         if (addrs.incentivesController == address(0)) revert ZeroIncentivesController();
 
         address poolAddr = addrs.pool;
@@ -121,7 +131,7 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
             address aToken = reserveData.aTokenAddress;
             address variableDebtToken = reserveData.variableDebtTokenAddress;
             if (aToken == address(0) || variableDebtToken == address(0)) {
-                revert ReserveNotListed(emissions[i].symbol);
+                revert ReserveNotListed(vm.toString(emissions[i].asset));
             }
 
             uint256 base = i * 2;
@@ -144,10 +154,11 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
                 rewardOracle: AggregatorInterface(address(priceFeed))
             });
 
-            console.log(emissions[i].symbol);
+            console.log("asset:", emissions[i].asset);
             console.log("  aToken:", aToken);
             console.log("  variableDebtToken:", variableDebtToken);
-            console.log("  weight:", emissions[i].weight, "bps");
+            console.log("  supply bps:", emissions[i].supplyBps);
+            console.log("  borrow bps:", emissions[i].borrowBps);
             console.log("  supply emission/sec:", uint256(emissions[i].supplyEmissionPerSecond));
             console.log("  borrow emission/sec:", uint256(emissions[i].borrowEmissionPerSecond));
         }
@@ -171,15 +182,5 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
         }
 
         if (!skipBroadcast) vm.stopBroadcast();
-    }
-
-    function _getAddresses() private pure returns (NetworkConfig.Addresses memory) {
-        if (NETWORK == TokensConfig.Network.ArbitrumSepolia) {
-            return ArbitrumSepolia.getAddresses();
-        }
-        if (NETWORK == TokensConfig.Network.MonadMainnet) {
-            return MonadMainnet.getAddresses();
-        }
-        revert("Unsupported network");
     }
 }
