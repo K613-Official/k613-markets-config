@@ -13,7 +13,7 @@ Configuration and deployment scripts for lending markets on top of an **Aave v3�
 - **Payloads** — Stateless, execute-once contracts inheriting `AaveV3Payload`. Each payload declares its intent as `Listing[]` / `CapsUpdate[]` / `CollateralUpdate[]` / etc., and `delegatecall`s the deployed `AaveV3ConfigEngine` to apply it in one transaction (listing, oracles, collateral, caps, IR strategy — all at once).
 - **Scripts** — Forge scripts to deploy and `execute()` payloads.
 - **Incentives** — `IncentivesConfig` stores per-asset `(supplyBps, borrowBps)` weights keyed by underlying asset address; the supply/borrow ratio is set **per asset**, not globally, and the sum across all assets must equal `10_000` bps. `ConfigureSupplyIncentives` registers xK613 emissions on **aToken** and **variableDebtToken** for every configured asset in one transaction.
-- **Admin ops** — [`AdminOps.s.sol`](script/AdminOps.s.sol) for single-call `PoolConfigurator` tweaks (caps, reserve factor, liq protocol fee) without deploying a payload; [`ExecuteEmergencyPayload.s.sol`](script/ExecuteEmergencyPayload.s.sol) for freeze/pause a reserve.
+- **Admin ops** — [`AdminOps.s.sol`](script/operations/AdminOps.s.sol) for single-call `PoolConfigurator` tweaks (caps, reserve factor, liq protocol fee) without deploying a payload; [`ExecuteEmergencyPayload.s.sol`](script/operations/ExecuteEmergencyPayload.s.sol) for freeze/pause a reserve.
 
 ## Supported Networks
 
@@ -26,13 +26,10 @@ Configuration and deployment scripts for lending markets on top of an **Aave v3�
 ```
 src/
 ├── config/
-│   ├── TokensConfig.sol          # `Token` struct used by the off-chain registry
-│   ├── TokensRegistry.sol        # Admin-managed catalog seeded with Monad reserves
-│   ├── OraclesConfig.sol         # Helpers for pool-oracle writes from a token list
-│   ├── interface/ITokensRegistry.sol
-│   └── networks/
-│       ├── NetworkConfig.sol     # Shared `Addresses` struct + resolvers
-│       └── MonadMainnet.sol      # Canonical deployed addresses, incl. `CONFIG_ENGINE`
+│   └── OraclesConfig.sol         # Helpers for pool-oracle writes from a token list
+├── networks/
+│   ├── NetworkConfig.sol         # Shared `Addresses` struct + resolvers
+│   └── MonadMainnet.sol          # Canonical deployed addresses, incl. `CONFIG_ENGINE`
 ├── incentives/                   # IncentivesConfig (weights, yearly totals); StaticRewardPriceFeed
 ├── adapters/
 │   └── ExchangeRateAdapter.sol   # token/MON × MON/USD → USD aggregator for the pool oracle
@@ -45,11 +42,16 @@ src/
         └── K613Monad_EmergencyPause.sol   # setReservePause(asset, flag)
 
 script/
-├── DeployAdapters.s.sol             # ExchangeRateAdapter for SHMON / SMON / GMON
-├── ExecuteListingPayload.s.sol      # Deploys and executes a K613PayloadMonad subclass
-├── ConfigureSupplyIncentives.s.sol
-├── AdminOps.s.sol                   # Single-call PoolConfigurator tweaks (caps / RF / fees)
-└── ExecuteEmergencyPayload.s.sol    # Freeze / unfreeze / pause / unpause a single reserve
+├── deploy/
+│   └── DeployAdapters.s.sol
+├── operations/
+│   ├── ExecutePayload.s.sol
+│   ├── AdminOps.s.sol
+│   └── ExecuteEmergencyPayload.s.sol
+├── incentives/
+│   └── ConfigureSupplyIncentives.s.sol
+└── admin/
+    └── GrantRoles.s.sol
 ```
 
 ## Prerequisites
@@ -64,11 +66,11 @@ Optional: `ETHERSCAN_API_KEY` for contract verification.
 
 ## Deployment Order
 
-All configuration goes through one transaction per payload: the payload is deployed, then its `execute()` is called, which `delegatecall`s the already-deployed [`AaveV3ConfigEngine`](src/config/networks/MonadMainnet.sol) to write oracles, initialize reserves, set LTV/LT/LB/RF, and set caps — in one shot.
+All configuration goes through one transaction per payload: the payload is deployed, then its `execute()` is called, which `delegatecall`s the already-deployed [`AaveV3ConfigEngine`](src/networks/MonadMainnet.sol) to write oracles, initialize reserves, set LTV/LT/LB/RF, and set caps — in one shot.
 
-Caller must hold `POOL_ADMIN` / `RISK_ADMIN` on the Monad `ACLManager` (address in [`MonadMainnet.sol`](src/config/networks/MonadMainnet.sol)).
+Caller must hold `POOL_ADMIN` / `RISK_ADMIN` on the Monad `ACLManager` (address in [`MonadMainnet.sol`](src/networks/MonadMainnet.sol)).
 
-**Oracle adapters (SHMON / SMON / GMON)** — MON-derivative assets need a combined `asset/MON × MON/USD → USD` aggregator. Run [`DeployAdapters`](script/DeployAdapters.s.sol) **once** before authoring any payload that lists those assets, and paste the printed addresses into the `priceFeed` slot of the relevant `Listing` struct (see [`K613Monad_InitialListing.sol`](src/payloads/K613Monad_InitialListing.sol) for the layout).
+**Oracle adapters (SHMON / SMON / GMON)** — MON-derivative assets need a combined `asset/MON × MON/USD → USD` aggregator. Run [`DeployAdapters`](script/deploy/DeployAdapters.s.sol) **once** before authoring any payload that lists those assets, and paste the printed addresses into the `priceFeed` slot of the relevant `Listing` struct (see [`K613Monad_InitialListing.sol`](src/payloads/K613Monad_InitialListing.sol) for the layout).
 
 ### Running a listing payload (Monad)
 
@@ -78,19 +80,19 @@ Scripts target **Monad Mainnet** by default. Set `MONAD_RPC_URL` in `.env`.
 source .env   # loads MONAD_RPC_URL, PRIVATE_KEY, etc.
 
 # 0. ExchangeRateAdapter for SHMON, SMON, GMON — only if the payload lists them
-forge script script/DeployAdapters.s.sol \
+forge script script/deploy/DeployAdapters.s.sol \
   --rpc-url $MONAD_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast --slow -vv
 
 # 1. Deploy + execute the initial listing payload (oracles, reserves, collateral, caps)
-forge script script/ExecuteListingPayload.s.sol \
+PAYLOAD=InitialListing forge script script/operations/ExecutePayload.s.sol \
   --rpc-url $MONAD_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast --slow -vv
 
 # 2. Incentives (optional)
-forge script script/ConfigureSupplyIncentives.s.sol \
+forge script script/incentives/ConfigureSupplyIncentives.s.sol \
   --rpc-url $MONAD_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast --slow -vv
@@ -98,7 +100,7 @@ forge script script/ConfigureSupplyIncentives.s.sol \
 
 ### Adding a new asset
 
-Create a short payload (~30 lines) inheriting [`K613PayloadMonad`](src/payloads/K613PayloadMonad.sol) and overriding `newListings()` with a single `IAaveV3ConfigEngine.Listing` literal — asset, price feed, rate curve, LTV/LT/LB/RF, caps. Point [`ExecuteListingPayload`](script/ExecuteListingPayload.s.sol) at the new payload (or duplicate the script), deploy, `execute()`. No config contract needs redeploying, and the engine instance is reused forever.
+Create a short payload (~30 lines) inheriting [`K613PayloadMonad`](src/payloads/K613PayloadMonad.sol) and overriding `newListings()` with a single `IAaveV3ConfigEngine.Listing` literal — asset, price feed, rate curve, LTV/LT/LB/RF, caps. Register it in [`ExecutePayload`](script/operations/ExecutePayload.s.sol), deploy, `execute()`. No config contract needs redeploying, and the engine instance is reused forever.
 
 For maintenance tasks (cap bumps, rate curve tweaks, collateral changes), override `capsUpdates()` / `collateralsUpdates()` / `rateStrategiesUpdates()` / `borrowsUpdates()` / `priceFeedsUpdates()` instead of `newListings()`.
 
@@ -116,7 +118,7 @@ export INCENTIVES_DISTRIBUTION_END=          # unix timestamp (uint32), must be 
 # export INCENTIVES_REWARD_ORACLE_ANSWER=    # default 800000 (8 decimals → $0.008)
 # export INCENTIVES_REWARD_ORACLE_DECIMALS=  # default 8
 
-forge script script/ConfigureSupplyIncentives.s.sol \
+forge script script/incentives/ConfigureSupplyIncentives.s.sol \
   --rpc-url $MONAD_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast --slow -vv
@@ -138,7 +140,7 @@ export ADMIN_OP=supplyCap
 export ADMIN_ASSET=0x...
 export ADMIN_VALUE=300000
 
-forge script script/AdminOps.s.sol \
+forge script script/operations/AdminOps.s.sol \
   --rpc-url $MONAD_RPC_URL --private-key $PRIVATE_KEY --broadcast -vv
 ```
 
@@ -152,13 +154,13 @@ Freeze blocks new supply/borrow/repay but keeps liquidations live. Pause blocks 
 export EMERGENCY_ACTION=freeze     # freeze | unfreeze | pause | unpause
 export EMERGENCY_ASSET=0x...
 
-forge script script/ExecuteEmergencyPayload.s.sol \
+forge script script/operations/ExecuteEmergencyPayload.s.sol \
   --rpc-url $MONAD_RPC_URL --private-key $PRIVATE_KEY --broadcast -vv
 ```
 
 ### Larger changes (multi-param, multi-asset, or new listing)
 
-Write a short payload inheriting [`K613PayloadMonad`](src/payloads/K613PayloadMonad.sol) and override the relevant hooks (`newListings` / `capsUpdates` / `collateralsUpdates` / `rateStrategiesUpdates` / `priceFeedsUpdates` / `borrowsUpdates` / `eModeCategoriesUpdates` / `assetsEModeUpdates`), then deploy and `execute()` it via [`ExecuteListingPayload.s.sol`](script/ExecuteListingPayload.s.sol). The engine is reused forever — no redeploy needed.
+Write a short payload inheriting [`K613PayloadMonad`](src/payloads/K613PayloadMonad.sol) and override the relevant hooks (`newListings` / `capsUpdates` / `collateralsUpdates` / `rateStrategiesUpdates` / `priceFeedsUpdates` / `borrowsUpdates` / `eModeCategoriesUpdates` / `assetsEModeUpdates`), then deploy and `execute()` it via [`ExecutePayload.s.sol`](script/operations/ExecutePayload.s.sol). The engine is reused forever — no redeploy needed.
 
 [`K613Monad_ConfigureEModes.sol`](src/payloads/K613Monad_ConfigureEModes.sol) is a reference payload that creates two blue-chip eMode categories (ETH-correlated, stablecoins) and assigns the 6 relevant reserves.
 
@@ -168,7 +170,7 @@ Weights are stored on-chain in the deployed `IncentivesConfig`. Call `setWeights
 
 ### Targeting another chain
 
-Scripts and payloads read addresses from `MonadMainnet` in `src/config/networks/`. To target another chain, add a new library alongside `MonadMainnet.sol` and update the scripts/payloads to import it.
+Scripts and payloads read addresses from `MonadMainnet` in `src/networks/`. To target another chain, add a new library alongside `MonadMainnet.sol` and update the scripts/payloads to import it.
 
 ## Commands
 

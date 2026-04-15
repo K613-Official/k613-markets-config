@@ -11,4 +11,4 @@ docs/
 
 # Dotenv file
 .env
-.env.example
+.DEPLOYMENT.md

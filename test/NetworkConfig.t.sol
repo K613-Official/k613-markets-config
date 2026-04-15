@@ -2,8 +2,8 @@
 pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
-import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
-import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
+import {NetworkConfig} from "../src/networks/NetworkConfig.sol";
+import {MonadMainnet} from "../src/networks/MonadMainnet.sol";
 
 /// @title NetworkConfigTest
 /// @notice Tests for network configuration libraries

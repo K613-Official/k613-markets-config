@@ -6,7 +6,7 @@ import {K613Monad_InitialListing} from "../src/payloads/K613Monad_InitialListing
 import {K613PayloadMonad} from "../src/payloads/K613PayloadMonad.sol";
 import {IAaveV3ConfigEngine} from "lib/K613-Protocol/src/contracts/extensions/v3-config-engine/IAaveV3ConfigEngine.sol";
 import {EngineFlags} from "lib/K613-Protocol/src/contracts/extensions/v3-config-engine/EngineFlags.sol";
-import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
+import {MonadMainnet} from "../src/networks/MonadMainnet.sol";
 
 /// @title K613Monad_InitialListingTest
 /// @notice Verifies the declarative `Listing[]` produced by the initial Monad payload.

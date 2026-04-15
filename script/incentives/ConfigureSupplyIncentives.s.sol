@@ -14,50 +14,27 @@ import {
 import {RewardsDataTypes} from "lib/K613-Protocol/src/contracts/rewards/libraries/RewardsDataTypes.sol";
 import {AggregatorInterface} from "lib/K613-Protocol/src/contracts/dependencies/chainlink/AggregatorInterface.sol";
 import {IRewardsDistributor} from "lib/K613-Protocol/src/contracts/rewards/interfaces/IRewardsDistributor.sol";
-import {StaticRewardPriceFeed} from "../src/incentives/StaticRewardPriceFeed.sol";
-import {IncentivesConfig} from "../src/incentives/IncentivesConfig.sol";
-import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
-import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
-import {SimulationPrank} from "./SimulationPrank.sol";
+import {StaticRewardPriceFeed} from "../../src/incentives/StaticRewardPriceFeed.sol";
+import {IncentivesConfig} from "../../src/incentives/IncentivesConfig.sol";
+import {NetworkConfig} from "../../src/networks/NetworkConfig.sol";
+import {MonadMainnet} from "../../src/networks/MonadMainnet.sol";
 
-/// @title IOwnable
-/// @notice Minimal ownable surface used by incentive scripts.
 interface IOwnable {
-    /// @notice Returns the contract owner address.
     function owner() external view returns (address);
 }
 
-/// @title ConfigureSupplyIncentives
-/// @notice Configures xK613 supply and borrow incentives for all Monad mainnet markets in one tx
-/// @dev Env vars:
-///   INCENTIVES_REWARD_TOKEN     — xK613 token address
-///   INCENTIVES_REWARDS_VAULT    — vault holding xK613
-///   INCENTIVES_DISTRIBUTION_END — unix timestamp (end of Year 1)
-///   INCENTIVES_REWARD_ORACLE_ANSWER  — xK613 price in USD (default: 800000 = $0.008, 8 decimals)
-///   INCENTIVES_REWARD_ORACLE_DECIMALS — oracle decimals (default: 8)
-contract ConfigureSupplyIncentives is Script, SimulationPrank {
-    /// @notice `INCENTIVES_DISTRIBUTION_END` does not fit uint32.
+contract ConfigureSupplyIncentives is Script {
     error DistributionEndOverflow();
-    /// @notice Distribution end is not strictly in the future.
     error DistributionEndInPast();
-    /// @notice Configured oracle answer was non-positive.
     error InvalidOracleAnswer();
-    /// @notice Incentives controller address resolved to zero.
     error ZeroIncentivesController();
-    /// @notice Pool address resolved to zero.
     error ZeroPool();
-    /// @notice Emission manager address resolved to zero.
     error ZeroEmissionManager();
-    /// @notice Emission admin must be assigned before configuring emissions.
     error SetEmissionAdminFirst();
-    /// @notice Caller is not emission admin for the reward token.
     error NotEmissionAdmin();
-    /// @notice Pool data did not contain a reserve for the requested symbol.
     error ReserveNotListed(string symbol);
-    /// @notice `INCENTIVES_CONFIG` env was zero address.
     error ZeroIncentivesConfig();
 
-    /// @notice Configures xK613 emissions on all listed reserves per `IncentivesConfig` weights.
     function run() external {
         address deployer;
         uint256 pk;
@@ -72,11 +49,8 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
             deployer = wallets.length > 0 ? wallets[0] : tx.origin;
         }
 
-        bool skipBroadcast = _simulationPrankActive();
-        if (!skipBroadcast) {
-            if (pkResolved) vm.startBroadcast(pk);
-            else vm.startBroadcast();
-        }
+        if (pkResolved) vm.startBroadcast(pk);
+        else vm.startBroadcast();
 
         address rewardToken = vm.envAddress("INCENTIVES_REWARD_TOKEN");
         address rewardsVault = vm.envAddress("INCENTIVES_REWARDS_VAULT");
@@ -105,7 +79,6 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
         if (emissionManagerAddr == address(0)) revert ZeroEmissionManager();
         IEmissionManager emissionManager = IEmissionManager(emissionManagerAddr);
 
-        // Set emission admin if needed
         address emissionAdmin = emissionManager.getEmissionAdmin(rewardToken);
         if (emissionAdmin == address(0)) {
             address emOwner = IOwnable(emissionManagerAddr).owner();
@@ -118,7 +91,6 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
         PullRewardsTransferStrategy strategy =
             new PullRewardsTransferStrategy(addrs.incentivesController, deployer, rewardsVault);
 
-        // Build configs for all markets
         IncentivesConfig incentivesConfig = IncentivesConfig(incentivesConfigAddr);
         IncentivesConfig.EmissionConfig[] memory emissions =
             incentivesConfig.getEmissionConfigs(incentivesConfig.YEAR1_TOTAL());
@@ -163,9 +135,7 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
             console.log("  borrow emission/sec:", uint256(emissions[i].borrowEmissionPerSecond));
         }
 
-        bool prank = _beginSimulationPrank();
         emissionManager.configureAssets(cfg);
-        _endSimulationPrank(prank);
 
         console.log("\n=== Deployment Summary ===");
         console.log("Reward token (xK613):", rewardToken);
@@ -181,6 +151,6 @@ contract ConfigureSupplyIncentives is Script, SimulationPrank {
             console.log("  IERC20(xK613).approve(strategy, type(uint256).max)");
         }
 
-        if (!skipBroadcast) vm.stopBroadcast();
+        vm.stopBroadcast();
     }
 }

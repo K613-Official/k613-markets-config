@@ -3,29 +3,13 @@ pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
 import {IACLManager} from "lib/K613-Protocol/src/contracts/interfaces/IACLManager.sol";
-import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
+import {MonadMainnet} from "../../src/networks/MonadMainnet.sol";
 
 interface IOwnable {
     function owner() external view returns (address);
     function transferOwnership(address newOwner) external;
 }
 
-/// @title GrantRoles
-/// @notice One-shot migration from single deployer-key admin to multisig-backed roles.
-/// @dev Runs in two modes selected by `GRANT_MODE` env var:
-///        "grantOnly"   — grants roles to multisigs, keeps deployer roles (safe, reversible)
-///        "grantRevoke" — grants new roles AND revokes deployer's POOL/RISK/EMERGENCY roles
-///      In both modes `PoolAddressesProvider` and `EmissionManager` ownership is transferred
-///      to `MAIN_MULTISIG` because `Ownable` has no parallel-owner state.
-///
-///      `DEFAULT_ADMIN_ROLE` grant/renounce is intentionally **not** handled here — it is the
-///      point-of-no-return step and must be executed by hand after verifying the multisig can
-///      already call `grantRole` through a test transaction.
-///
-///      Env vars:
-///        GRANT_MODE       — "grantOnly" | "grantRevoke"
-///        MAIN_MULTISIG    — multisig receiving POOL_ADMIN, RISK_ADMIN, and ownership
-///        EMERGENCY_HOT    — hot wallet or low-threshold multisig for EMERGENCY_ADMIN
 contract GrantRoles is Script {
     error UnknownMode(string mode);
     error ZeroMultisig();
@@ -73,7 +57,6 @@ contract GrantRoles is Script {
         if (pkResolved) vm.startBroadcast(pk);
         else vm.startBroadcast();
 
-        // --- 1. Grant new roles to multisigs ---
         if (!acl.isPoolAdmin(mainMultisig)) {
             acl.addPoolAdmin(mainMultisig);
             console.log("+ POOL_ADMIN granted to main multisig");
@@ -98,11 +81,9 @@ contract GrantRoles is Script {
         }
         if (!acl.isEmergencyAdmin(emergencyHot)) revert MultisigGrantFailed("EMERGENCY_ADMIN");
 
-        // --- 2. Transfer Ownable contracts ---
         _transferIfNeeded(MonadMainnet.POOL_ADDRESSES_PROVIDER, mainMultisig, "PoolAddressesProvider");
         _transferIfNeeded(MonadMainnet.EMISSION_MANAGER, mainMultisig, "EmissionManager");
 
-        // --- 3. Optionally revoke deployer's POOL / RISK / EMERGENCY roles ---
         if (revoke) {
             console.log("");
             console.log("Revoking deployer roles (grantRevoke mode):");

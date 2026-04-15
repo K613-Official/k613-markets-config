@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {K613Monad_ConfigureEModes} from "../src/payloads/K613Monad_ConfigureEModes.sol";
 import {IAaveV3ConfigEngine} from "lib/K613-Protocol/src/contracts/extensions/v3-config-engine/IAaveV3ConfigEngine.sol";
 import {EngineFlags} from "lib/K613-Protocol/src/contracts/extensions/v3-config-engine/EngineFlags.sol";
-import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
+import {MonadMainnet} from "../src/networks/MonadMainnet.sol";
 
 /// @title K613Monad_ConfigureEModesTest
 /// @notice Static checks on the eMode payload shape and engine wiring (no fork).

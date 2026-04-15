@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {K613Monad_EmergencyPause} from "../src/payloads/emergency/K613Monad_EmergencyPause.sol";
 import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
-import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
+import {MonadMainnet} from "../src/networks/MonadMainnet.sol";
 
 /// @title K613Monad_EmergencyPauseTest
 /// @notice Tests pause payload storage and the calldata sent to `PoolConfigurator`.

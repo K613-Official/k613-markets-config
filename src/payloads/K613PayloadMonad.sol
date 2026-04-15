@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {AaveV3Payload} from "lib/K613-Protocol/src/contracts/extensions/v3-config-engine/AaveV3Payload.sol";
 import {IAaveV3ConfigEngine} from "lib/K613-Protocol/src/contracts/extensions/v3-config-engine/IAaveV3ConfigEngine.sol";
-import {MonadMainnet} from "../config/networks/MonadMainnet.sol";
+import {MonadMainnet} from "../networks/MonadMainnet.sol";
 
 /// @title K613PayloadMonad
 /// @notice Base `AaveV3Payload` wired to the Monad mainnet `AaveV3ConfigEngine` instance.

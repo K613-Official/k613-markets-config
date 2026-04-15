@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
-import {MonadMainnet} from "../../config/networks/MonadMainnet.sol";
+import {MonadMainnet} from "../../networks/MonadMainnet.sol";
 
 /// @title K613Monad_EmergencyPause
 /// @notice Parameterized one-shot payload that pauses or unpauses a single reserve.
