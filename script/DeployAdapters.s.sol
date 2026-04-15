@@ -5,17 +5,20 @@ import {Script, console} from "forge-std/Script.sol";
 import {ExchangeRateAdapter} from "../src/adapters/ExchangeRateAdapter.sol";
 
 /// @title DeployAdapters
-/// @notice Deploys ExchangeRateAdapter instances for SHMON, SMON, GMON
-/// @dev Run before FullMarketSetup. After deployment, update priceFeed addresses in TokensConfig.
+/// @notice Deploys `ExchangeRateAdapter` instances for SHMON, SMON, and GMON.
+/// @dev After deployment, paste printed adapter addresses into listing payload `priceFeed` fields.
 contract DeployAdapters is Script {
-    // Chainlink MON/USD price feed on Monad mainnet
+    /// @notice Chainlink MON/USD feed on Monad mainnet (second leg of each adapter).
     address internal constant MON_USD = 0xBcD78f76005B7515837af6b50c7C52BCf73822fb;
 
-    // Chainlink exchange rate feeds on Monad mainnet
+    /// @notice Chainlink shMON/MON exchange rate feed on Monad mainnet.
     address internal constant SHMON_MON = 0x54a1020D118B9BeF3F3A4ec8E24AeEc9DFdBe4c3;
+    /// @notice Chainlink sMON/MON exchange rate feed on Monad mainnet.
     address internal constant SMON_MON = 0x056d0eF95A4e046D028b00E6eC00bB4A8b1eBb96;
+    /// @notice Chainlink gMON/MON exchange rate feed on Monad mainnet.
     address internal constant GMON_MON = 0xf97dfEd6Aa4cc387aBC5d47F0062A91CB4E4A755;
 
+    /// @notice Deploys three `ExchangeRateAdapter` contracts and logs their addresses.
     function run() external {
         vm.startBroadcast();
 

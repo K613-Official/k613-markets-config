@@ -1,66 +1,80 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {TokensConfig} from "../config/TokensConfig.sol";
-
 /// @title IncentivesConfig
-/// @notice Emission weights and schedule for xK613 supply incentives
-/// @dev Weights are in basis points (total = 10000 = 100%)
+/// @notice Per-asset supply/borrow emission weights for xK613 incentives.
+/// @dev Weights are keyed by underlying asset address. The sum of `supplyBps + borrowBps`
+///      across all configured assets must equal `WEIGHT_BPS` (10_000 = 100%).
+///      Supply/borrow split is per-asset — different assets can use different ratios.
+///      Storage is an append-only list of assets plus an index mapping; `setWeights` replaces
+///      the whole set atomically.
 contract IncentivesConfig {
+    /// @notice Caller is not `admin`.
     error Unauthorized();
+    /// @notice `newAdmin` or constructor `initialAdmin` was zero.
     error InvalidAdmin();
-    error InvalidRewardShares();
+    /// @notice Sum of `supplyBps + borrowBps` across weights did not equal `WEIGHT_BPS`.
     error InvalidWeightsSum();
+    /// @notice `setWeights` received an empty array.
     error InvalidWeightsLength();
+    /// @notice Weight row used zero `asset`.
+    error ZeroAsset();
+    /// @notice Duplicate underlying in the same `setWeights` batch.
+    /// @param asset Repeated asset address.
+    error DuplicateAsset(address asset);
+
+    /// @notice Emitted when `admin` is rotated.
     event AdminUpdated(address indexed previousAdmin, address indexed newAdmin);
-    event RewardSharesUpdated(uint256 supplyRewardShareBps, uint256 borrowRewardShareBps);
-    event WeightsUpdated(uint256[] weights);
+    /// @notice Emitted after `setWeights` replaces the stored weight vector.
+    event WeightsUpdated(AssetWeight[] weights);
 
     uint256 public constant WEIGHT_BPS = 10_000;
-    uint256 public supplyRewardShareBps;
-    uint256 public borrowRewardShareBps;
 
-    // Year 1: 25,000,000 xK613
+    /// @notice Total xK613 emitted in year one (25M tokens, 18 decimals).
     uint256 public constant YEAR1_TOTAL = 25_000_000e18;
-    // Year 2: 10,000,000 xK613
+    /// @notice Total xK613 emitted in year two (10M tokens, 18 decimals).
     uint256 public constant YEAR2_TOTAL = 10_000_000e18;
-    // Year 3: 5,000,000 xK613
+    /// @notice Total xK613 emitted in year three (5M tokens, 18 decimals).
     uint256 public constant YEAR3_TOTAL = 5_000_000e18;
 
     address public admin;
-    uint256[11] private weights;
 
-    struct EmissionConfig {
+    /// @notice Per-asset share of the yearly budget.
+    /// @param asset Underlying asset address (key).
+    /// @param supplyBps Share allocated to the asset's aToken holders.
+    /// @param borrowBps Share allocated to the asset's variableDebtToken holders.
+    struct AssetWeight {
         address asset;
-        string symbol;
-        uint88 supplyEmissionPerSecond;
-        uint88 borrowEmissionPerSecond;
-        uint256 weight;
+        uint256 supplyBps;
+        uint256 borrowBps;
     }
 
+    /// @notice Emission rate snapshot for a single reserve, derived from a stored weight.
+    struct EmissionConfig {
+        address asset;
+        uint88 supplyEmissionPerSecond;
+        uint88 borrowEmissionPerSecond;
+        uint256 supplyBps;
+        uint256 borrowBps;
+    }
+
+    AssetWeight[] private weights;
+
+    /// @notice Sets `admin` to `initialAdmin` with an empty weight list.
+    /// @param initialAdmin Non-zero governance key.
     constructor(address initialAdmin) {
         if (initialAdmin == address(0)) revert InvalidAdmin();
         admin = initialAdmin;
-        supplyRewardShareBps = 6500;
-        borrowRewardShareBps = 3500;
-        weights[0] = 2100;
-        weights[1] = 1900;
-        weights[2] = 750;
-        weights[3] = 850;
-        weights[4] = 1500;
-        weights[5] = 1300;
-        weights[6] = 1050;
-        weights[7] = 200;
-        weights[8] = 150;
-        weights[9] = 100;
-        weights[10] = 100;
     }
 
+    /// @notice Restricts mutating calls to `admin`.
     modifier onlyAdmin() {
         if (msg.sender != admin) revert Unauthorized();
         _;
     }
 
+    /// @notice Transfers admin to `newAdmin`.
+    /// @param newAdmin Non-zero successor address.
     function setAdmin(address newAdmin) external onlyAdmin {
         if (newAdmin == address(0)) revert InvalidAdmin();
         address previousAdmin = admin;
@@ -68,75 +82,61 @@ contract IncentivesConfig {
         emit AdminUpdated(previousAdmin, newAdmin);
     }
 
-    function setRewardShares(uint256 newSupplyRewardShareBps, uint256 newBorrowRewardShareBps) external onlyAdmin {
-        if (newSupplyRewardShareBps + newBorrowRewardShareBps != WEIGHT_BPS) revert InvalidRewardShares();
-        supplyRewardShareBps = newSupplyRewardShareBps;
-        borrowRewardShareBps = newBorrowRewardShareBps;
-        emit RewardSharesUpdated(newSupplyRewardShareBps, newBorrowRewardShareBps);
-    }
+    /// @notice Replaces the per-asset weights atomically.
+    /// @param newWeights Flat list of `(asset, supplyBps, borrowBps)`. Sum must equal `WEIGHT_BPS`.
+    function setWeights(AssetWeight[] calldata newWeights) external onlyAdmin {
+        if (newWeights.length == 0) revert InvalidWeightsLength();
 
-    function setWeights(uint256[] calldata newWeights) external onlyAdmin {
-        if (newWeights.length != 11) revert InvalidWeightsLength();
         uint256 sum = 0;
         for (uint256 i = 0; i < newWeights.length; i++) {
-            sum += newWeights[i];
+            address a = newWeights[i].asset;
+            if (a == address(0)) revert ZeroAsset();
+            for (uint256 j = 0; j < i; j++) {
+                if (newWeights[j].asset == a) revert DuplicateAsset(a);
+            }
+            sum += newWeights[i].supplyBps + newWeights[i].borrowBps;
         }
         if (sum != WEIGHT_BPS) revert InvalidWeightsSum();
-        weights[0] = newWeights[0];
-        weights[1] = newWeights[1];
-        weights[2] = newWeights[2];
-        weights[3] = newWeights[3];
-        weights[4] = newWeights[4];
-        weights[5] = newWeights[5];
-        weights[6] = newWeights[6];
-        weights[7] = newWeights[7];
-        weights[8] = newWeights[8];
-        weights[9] = newWeights[9];
-        weights[10] = newWeights[10];
+
+        delete weights;
+        for (uint256 i = 0; i < newWeights.length; i++) {
+            weights.push(newWeights[i]);
+        }
         emit WeightsUpdated(newWeights);
     }
 
-    function getWeights() external view returns (uint256[] memory) {
-        return _getWeights();
-    }
-
-    /// @notice Returns emission configs for all Monad mainnet tokens
-    /// @param yearlyTotal Total xK613 emission for the year (e.g. YEAR1_TOTAL)
-    function getEmissionConfigs(uint256 yearlyTotal) external view returns (EmissionConfig[] memory configs) {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
-        uint256[] memory configuredWeights = _getWeights();
-
-        configs = new EmissionConfig[](tokens.length);
-
-        for (uint256 i = 0; i < tokens.length; i++) {
-            uint256 assetYearly = (yearlyTotal * configuredWeights[i]) / WEIGHT_BPS;
-            uint256 supplyYearly = (assetYearly * supplyRewardShareBps) / WEIGHT_BPS;
-            uint256 borrowYearly = (assetYearly * borrowRewardShareBps) / WEIGHT_BPS;
-            uint88 supplyPerSecond = uint88(supplyYearly / 365 days);
-            uint88 borrowPerSecond = uint88(borrowYearly / 365 days);
-
-            configs[i] = EmissionConfig({
-                asset: tokens[i].asset,
-                symbol: tokens[i].symbol,
-                supplyEmissionPerSecond: supplyPerSecond,
-                borrowEmissionPerSecond: borrowPerSecond,
-                weight: configuredWeights[i]
-            });
+    /// @notice Returns a memory copy of all stored weights in order.
+    /// @return out Flat list of per-asset bps weights.
+    function getWeights() external view returns (AssetWeight[] memory out) {
+        uint256 n = weights.length;
+        out = new AssetWeight[](n);
+        for (uint256 i = 0; i < n; i++) {
+            out[i] = weights[i];
         }
     }
 
-    function _getWeights() private view returns (uint256[] memory values) {
-        values = new uint256[](11);
-        values[0] = weights[0];
-        values[1] = weights[1];
-        values[2] = weights[2];
-        values[3] = weights[3];
-        values[4] = weights[4];
-        values[5] = weights[5];
-        values[6] = weights[6];
-        values[7] = weights[7];
-        values[8] = weights[8];
-        values[9] = weights[9];
-        values[10] = weights[10];
+    /// @notice Returns how many weight rows are stored.
+    /// @return Length of the internal weight vector.
+    function weightCount() external view returns (uint256) {
+        return weights.length;
+    }
+
+    /// @notice Derives per-second emission rates for every stored weight.
+    /// @param yearlyTotal Total xK613 emitted during the year (e.g. `YEAR1_TOTAL`).
+    function getEmissionConfigs(uint256 yearlyTotal) external view returns (EmissionConfig[] memory configs) {
+        uint256 n = weights.length;
+        configs = new EmissionConfig[](n);
+        for (uint256 i = 0; i < n; i++) {
+            AssetWeight memory w = weights[i];
+            uint256 supplyYearly = (yearlyTotal * w.supplyBps) / WEIGHT_BPS;
+            uint256 borrowYearly = (yearlyTotal * w.borrowBps) / WEIGHT_BPS;
+            configs[i] = EmissionConfig({
+                asset: w.asset,
+                supplyEmissionPerSecond: uint88(supplyYearly / 365 days),
+                borrowEmissionPerSecond: uint88(borrowYearly / 365 days),
+                supplyBps: w.supplyBps,
+                borrowBps: w.borrowBps
+            });
+        }
     }
 }

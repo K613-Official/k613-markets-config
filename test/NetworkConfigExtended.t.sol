@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
 import {NetworkConfig} from "../src/config/networks/NetworkConfig.sol";
-import {ArbitrumSepolia} from "../src/config/networks/ArbitrumSepolia.sol";
 import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 
 /// @title MockPoolAddressesProvider
@@ -11,6 +10,7 @@ import {MonadMainnet} from "../src/config/networks/MonadMainnet.sol";
 contract MockPoolAddressesProvider is Test {
     address public poolConfigurator;
 
+    /// @param _poolConfigurator Address returned by `getPoolConfigurator`.
     constructor(address _poolConfigurator) {
         poolConfigurator = _poolConfigurator;
     }
@@ -46,20 +46,21 @@ contract NetworkConfigExtendedTest is Test {
         NetworkConfig.Addresses memory addrs = NetworkConfig.Addresses({
             poolAddressesProvider: address(provider),
             pool: address(0),
-            poolConfigurator: address(0), // Zero - should use fallback
+            poolConfigurator: address(0),
             oracle: address(0),
             aTokenImpl: address(0),
             variableDebtImpl: address(0),
             treasury: address(0),
             incentivesController: address(0),
-            defaultInterestRateStrategy: address(0)
+            defaultInterestRateStrategy: address(0),
+            configEngine: address(0)
         });
 
         address result = NetworkConfig.getPoolConfigurator(addrs);
         assertEq(result, mockConfigurator, "Should return configurator from provider");
     }
 
-    function test_MonadMainnetGetAddresses() public view {
+    function test_MonadMainnetGetAddresses() public pure {
         NetworkConfig.Addresses memory addrs = MonadMainnet.getAddresses();
 
         assertNotEq(addrs.poolAddressesProvider, address(0), "PoolAddressesProvider should be set");
@@ -71,12 +72,12 @@ contract NetworkConfigExtendedTest is Test {
         assertNotEq(addrs.treasury, address(0), "Treasury should be set");
         assertNotEq(addrs.incentivesController, address(0), "IncentivesController should be set");
         assertNotEq(addrs.defaultInterestRateStrategy, address(0), "DefaultInterestRateStrategy should be set");
+        assertNotEq(addrs.configEngine, address(0), "ConfigEngine should be set");
     }
 
-    function test_NetworkConfigAddressesStructure() public view {
-        NetworkConfig.Addresses memory addrs = ArbitrumSepolia.getAddresses();
+    function test_NetworkConfigAddressesStructure() public pure {
+        NetworkConfig.Addresses memory addrs = MonadMainnet.getAddresses();
 
-        // Verify all fields are accessible
         assertNotEq(addrs.poolAddressesProvider, address(0), "PoolAddressesProvider should be set");
         assertNotEq(addrs.pool, address(0), "Pool should be set");
         assertNotEq(addrs.oracle, address(0), "Oracle should be set");

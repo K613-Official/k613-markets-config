@@ -1,46 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {TokensConfig} from "../src/config/TokensConfig.sol";
+import {TokensRegistry} from "../src/config/TokensRegistry.sol";
+import {ITokensRegistry} from "../src/config/interface/ITokensRegistry.sol";
 
 /// @title TokensConfigTest
-/// @notice Tests for TokensConfig library
+/// @notice Validates the seeded `TokensRegistry` catalog against Monad mainnet expectations.
 contract TokensConfigTest is Test {
-    function test_GetArbitrumSepoliaTokens() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+    ITokensRegistry internal registry;
 
-        assertEq(tokens.length, 5, "Should have 5 tokens");
-
-        // Check WETH
-        assertEq(tokens[0].symbol, "WETH", "First token should be WETH");
-        assertEq(tokens[0].decimals, 18, "WETH should have 18 decimals");
-        assertEq(tokens[0].asset, 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73, "WETH address should match");
-
-        // Check USDC
-        assertEq(tokens[1].symbol, "USDC", "Second token should be USDC");
-        assertEq(tokens[1].decimals, 6, "USDC should have 6 decimals");
-        assertEq(tokens[1].asset, 0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d, "USDC address should match");
-
-        // Check USDT
-        assertEq(tokens[2].symbol, "USDT", "Third token should be USDT");
-        assertEq(tokens[2].decimals, 6, "USDT should have 6 decimals");
-
-        // Check DAI
-        assertEq(tokens[3].symbol, "DAI", "Fourth token should be DAI");
-        assertEq(tokens[3].decimals, 18, "DAI should have 18 decimals");
-
-        // Check WBTC
-        assertEq(tokens[4].symbol, "BTC", "Fifth token should be BTC");
-        assertEq(tokens[4].decimals, 8, "BTC should have 8 decimals");
+    function setUp() public {
+        registry = ITokensRegistry(address(new TokensRegistry(address(this))));
     }
 
-    function test_GetMonadMainnetTokens() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.MonadMainnet);
+    function test_GetMonadMainnetTokens() public view {
+        TokensConfig.Token[] memory tokens = registry.getTokens();
 
         assertEq(tokens.length, 11, "Should have 11 tokens");
 
-        // Check symbols and addresses
         assertEq(tokens[0].symbol, "USDC");
         assertEq(tokens[0].asset, 0x754704Bc059F8C67012fEd69BC8A327a5aafb603);
         assertEq(tokens[0].decimals, 6);
@@ -86,15 +65,12 @@ contract TokensConfigTest is Test {
         assertEq(tokens[10].decimals, 18);
     }
 
-    function test_UnsupportedNetwork() public {
-        // This test verifies that unsupported networks revert
-        // We can't directly test this since enum is limited, but we test edge cases
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
-        assertGt(tokens.length, 0, "ArbitrumSepolia should return tokens");
+    function test_TokenCount() public view {
+        assertEq(registry.tokenCount(), 11, "tokenCount should equal getTokens length");
     }
 
-    function test_TokenStructure() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
+    function test_TokenStructure() public view {
+        TokensConfig.Token[] memory tokens = registry.getTokens();
 
         for (uint256 i = 0; i < tokens.length; i++) {
             assertNotEq(tokens[i].asset, address(0), "Asset address should not be zero");
@@ -102,18 +78,6 @@ contract TokensConfigTest is Test {
             assertGt(tokens[i].decimals, 0, "Decimals should be greater than 0");
             assertLe(tokens[i].decimals, 18, "Decimals should not exceed 18");
             assertGt(bytes(tokens[i].symbol).length, 0, "Symbol should not be empty");
-        }
-    }
-
-    function test_AllTokensHaveValidDecimals() public {
-        TokensConfig.Token[] memory tokens = TokensConfig.getTokens(TokensConfig.Network.ArbitrumSepolia);
-
-        // Known decimals for each token
-        uint8[5] memory expectedDecimals = [uint8(18), 6, 6, 18, 8];
-        string[5] memory symbols = ["WETH", "USDC", "USDT", "DAI", "BTC"];
-
-        for (uint256 i = 0; i < tokens.length; i++) {
-            assertEq(tokens[i].decimals, expectedDecimals[i], string.concat("Decimals mismatch for ", symbols[i]));
         }
     }
 }

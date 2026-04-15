@@ -8,47 +8,48 @@ Configuration and deployment scripts for lending markets on top of an **Aave v3�
 
 ## What This Repo Does
 
-- **Token config** — Asset addresses and Chainlink (or other) price feeds per network.
-- **Risk config** — LTV, liquidation threshold, liquidation bonus, reserve factor, borrow/supply caps by asset type (WETH, BTC, stablecoins, etc.).
-- **Network config** — Protocol addresses (Pool, PoolConfigurator, Oracle, Treasury, aToken/VariableDebt implementations, interest rate strategy) per chain.
-- **Payloads** — Stateless, execute-once contracts (Aave-style governance payloads) that apply config to the protocol.
-- **Scripts** — Forge scripts to run payloads or configure step-by-step (oracles → init reserves → collateral → risk → optional incentives).
-- **Incentives** — `IncentivesConfig` defines per-asset reward weights and a **65% supply / 35% borrow** split of each asset’s share; `ConfigureSupplyIncentives` registers xK613 emissions on **aToken** and **variableDebtToken** for all Monad mainnet reserves in one transaction.
+- **Network config** — Protocol addresses (Pool, PoolConfigurator, Oracle, Treasury, aToken/VariableDebt implementations, default interest rate strategy, `AaveV3ConfigEngine`) per chain.
+- **Tokens registry** — Off-chain catalog of listed assets and price feeds (used by adapter deploys and external tooling); not a source of truth for payloads.
+- **Payloads** — Stateless, execute-once contracts inheriting `AaveV3Payload`. Each payload declares its intent as `Listing[]` / `CapsUpdate[]` / `CollateralUpdate[]` / etc., and `delegatecall`s the deployed `AaveV3ConfigEngine` to apply it in one transaction (listing, oracles, collateral, caps, IR strategy — all at once).
+- **Scripts** — Forge scripts to deploy and `execute()` payloads.
+- **Incentives** — `IncentivesConfig` stores per-asset `(supplyBps, borrowBps)` weights keyed by underlying asset address; the supply/borrow ratio is set **per asset**, not globally, and the sum across all assets must equal `10_000` bps. `ConfigureSupplyIncentives` registers xK613 emissions on **aToken** and **variableDebtToken** for every configured asset in one transaction.
+- **Admin ops** — [`AdminOps.s.sol`](script/AdminOps.s.sol) for single-call `PoolConfigurator` tweaks (caps, reserve factor, liq protocol fee) without deploying a payload; [`ExecuteEmergencyPayload.s.sol`](script/ExecuteEmergencyPayload.s.sol) for freeze/pause a reserve.
 
 ## Supported Networks
 
-| Network           | Status        |
-|------------------|---------------|
-| Arbitrum Sepolia | Configured    |
-| Monad Mainnet    | Primary target (scripts/payloads) |
+| Network        | Status                             |
+|----------------|------------------------------------|
+| Monad Mainnet  | Primary target (scripts/payloads)  |
 
 ## Project Structure
 
 ```
 src/
-├── config/           # Static config (tokens, risk, oracles, network addresses)
-│   ├── TokensConfig.sol
-│   ├── RiskConfig.sol
-│   ├── OraclesConfig.sol
-│   └── networks/     # ArbitrumSepolia.sol, MonadMainnet.sol, NetworkConfig.sol
-├── incentives/       # IncentivesConfig (weights, yearly totals); StaticRewardPriceFeed for reward oracle
-└── payloads/        # Governance-style payloads (execute once)
-    ├── OracleUpdatePayload.sol
-    ├── ListingPayload.sol       # initReserves
-    ├── CollateralConfigPayload.sol
-    └── RiskUpdatePayload.sol
+├── config/
+│   ├── TokensConfig.sol          # `Token` struct used by the off-chain registry
+│   ├── TokensRegistry.sol        # Admin-managed catalog seeded with Monad reserves
+│   ├── OraclesConfig.sol         # Helpers for pool-oracle writes from a token list
+│   ├── interface/ITokensRegistry.sol
+│   └── networks/
+│       ├── NetworkConfig.sol     # Shared `Addresses` struct + resolvers
+│       └── MonadMainnet.sol      # Canonical deployed addresses, incl. `CONFIG_ENGINE`
+├── incentives/                   # IncentivesConfig (weights, yearly totals); StaticRewardPriceFeed
+├── adapters/
+│   └── ExchangeRateAdapter.sol   # token/MON × MON/USD → USD aggregator for the pool oracle
+└── payloads/
+    ├── K613PayloadMonad.sol             # Abstract base wired to MonadMainnet.CONFIG_ENGINE
+    ├── K613Monad_InitialListing.sol     # One-shot payload listing the 11 Monad reserves
+    ├── K613Monad_ConfigureEModes.sol    # Blue-chip eMode categories (ETH-correlated, stables)
+    └── emergency/
+        ├── K613Monad_EmergencyFreeze.sol  # setReserveFreeze(asset, flag)
+        └── K613Monad_EmergencyPause.sol   # setReservePause(asset, flag)
 
-script/              # Forge deploy/run scripts
-├── DeployAdapters.s.sol          # ExchangeRateAdapter for SHMON / SMON / GMON (Monad)
-├── ConfigureOracles.s.sol
-├── InitReserves.s.sol
-├── ConfigureCollateral.s.sol
-├── ConfigureRisk.s.sol
+script/
+├── DeployAdapters.s.sol             # ExchangeRateAdapter for SHMON / SMON / GMON
+├── ExecuteListingPayload.s.sol      # Deploys and executes a K613PayloadMonad subclass
 ├── ConfigureSupplyIncentives.s.sol
-└── FullMarketSetup.s.sol
-
-src/adapters/
-└── ExchangeRateAdapter.sol      # Chainlink token/MON × MON/USD → USD aggregator for the pool oracle
+├── AdminOps.s.sol                   # Single-call PoolConfigurator tweaks (caps / RF / fees)
+└── ExecuteEmergencyPayload.s.sol    # Freeze / unfreeze / pause / unpause a single reserve
 ```
 
 ## Prerequisites
@@ -56,68 +57,56 @@ src/adapters/
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 - Deployed L2-Protocol (Aave fork) with your Pool, PoolConfigurator, Oracle, etc.
 - `.env` with at least:
-  - RPC URL for your chain (e.g. `MONAD_RPC_URL` or `ARBITRUM_SEPOLIA_RPC_URL`)
+  - RPC URL for your chain (e.g. `MONAD_RPC_URL`)
   - `PRIVATE_KEY` — deployer key (hex, with or without `0x`)
 
 Optional: `ETHERSCAN_API_KEY` for contract verification.
 
 ## Deployment Order
 
-Apply in this order (Aave v3 semantics). On **Monad**, use `$MONAD_RPC_URL` in `forge script` examples below.
+All configuration goes through one transaction per payload: the payload is deployed, then its `execute()` is called, which `delegatecall`s the already-deployed [`AaveV3ConfigEngine`](src/config/networks/MonadMainnet.sol) to write oracles, initialize reserves, set LTV/LT/LB/RF, and set caps — in one shot.
 
-**Oracle adapters (Monad, SHMON / SMON / GMON)** — `TokensConfig` lists Chainlink feeds per asset. For MON-derivative assets, `DeployAdapters` deploys **`ExchangeRateAdapter`**: it combines the asset/MON feed with the MON/USD feed so the pool oracle sees a single USD aggregator. Run **`DeployAdapters`** first, paste the printed addresses into `TokensConfig` for SHMON, SMON, and GMON `priceFeed` fields, then run **ConfigureOracles**.
+Caller must hold `POOL_ADMIN` / `RISK_ADMIN` on the Monad `ACLManager` (address in [`MonadMainnet.sol`](src/config/networks/MonadMainnet.sol)).
 
-1. **ConfigureOracles** — Set price feed sources on the protocol oracle.
-2. **InitReserves** — Initialize reserves (list assets) in the pool.
-3. **ConfigureCollateral** — Set LTV, liquidation threshold, liquidation bonus; enable borrowing.
-4. **ConfigureRisk** — Set borrow/supply caps and reserve factors.
-5. **ConfigureSupplyIncentives** (optional, **Monad Mainnet**) — Deploy `StaticRewardPriceFeed` and `PullRewardsTransferStrategy`, then call `EmissionManager.configureAssets` for **every** listed reserve: emissions on **aToken** (suppliers) and **variableDebtToken** (borrowers), with rates derived from `IncentivesConfig` (per-asset weights and 65/35 supply/borrow split).
+**Oracle adapters (SHMON / SMON / GMON)** — MON-derivative assets need a combined `asset/MON × MON/USD → USD` aggregator. Run [`DeployAdapters`](script/DeployAdapters.s.sol) **once** before authoring any payload that lists those assets, and paste the printed addresses into the `priceFeed` slot of the relevant `Listing` struct (see [`K613Monad_InitialListing.sol`](src/payloads/K613Monad_InitialListing.sol) for the layout).
 
-### Step-by-step (recommended, Monad)
+### Running a listing payload (Monad)
 
-Scripts default to **`TokensConfig.Network.MonadMainnet`** in code (not Arbitrum). Set `MONAD_RPC_URL` in `.env`.
+Scripts target **Monad Mainnet** by default. Set `MONAD_RPC_URL` in `.env`.
 
 ```bash
 source .env   # loads MONAD_RPC_URL, PRIVATE_KEY, etc.
 
-# 0. ExchangeRateAdapter for SHMON, SMON, GMON — then update TokensConfig price feeds from script output
+# 0. ExchangeRateAdapter for SHMON, SMON, GMON — only if the payload lists them
 forge script script/DeployAdapters.s.sol \
   --rpc-url $MONAD_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast --slow -vv
 
-# 1. Oracles
-forge script script/ConfigureOracles.s.sol \
+# 1. Deploy + execute the initial listing payload (oracles, reserves, collateral, caps)
+forge script script/ExecuteListingPayload.s.sol \
   --rpc-url $MONAD_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast --slow -vv
 
-# 2. Init reserves (list assets)
-forge script script/InitReserves.s.sol \
-  --rpc-url $MONAD_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast --slow -vv
-
-# 3. Collateral (LTV, LT, LB, borrowing)
-forge script script/ConfigureCollateral.s.sol \
-  --rpc-url $MONAD_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast --slow -vv
-
-# 4. Risk (caps, reserve factor)
-forge script script/ConfigureRisk.s.sol \
+# 2. Incentives (optional)
+forge script script/ConfigureSupplyIncentives.s.sol \
   --rpc-url $MONAD_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast --slow -vv
 ```
 
-For **Arbitrum Sepolia**, change the `NETWORK` constant in each script to `ArbitrumSepolia` and use `$ARBITRUM_SEPOLIA_RPC_URL` (or your RPC env name). Adapter deployment is Monad-specific in `DeployAdapters`; Sepolia flows may skip step 0 if feeds are already direct Chainlink USD feeds in `TokensConfig`.
+### Adding a new asset
+
+Create a short payload (~30 lines) inheriting [`K613PayloadMonad`](src/payloads/K613PayloadMonad.sol) and overriding `newListings()` with a single `IAaveV3ConfigEngine.Listing` literal — asset, price feed, rate curve, LTV/LT/LB/RF, caps. Point [`ExecuteListingPayload`](script/ExecuteListingPayload.s.sol) at the new payload (or duplicate the script), deploy, `execute()`. No config contract needs redeploying, and the engine instance is reused forever.
+
+For maintenance tasks (cap bumps, rate curve tweaks, collateral changes), override `capsUpdates()` / `collateralsUpdates()` / `rateStrategiesUpdates()` / `borrowsUpdates()` / `priceFeedsUpdates()` instead of `newListings()`.
 
 ### Supply and borrow incentives (reward token, Monad)
 
 Prerequisites: steps 1–4 completed on **Monad** so every reserve has aToken and variableDebtToken. The **`INCENTIVES_REWARDS_VAULT`** must hold enough reward tokens and **`approve`** the deployed `PullRewardsTransferStrategy` (the script prints its address). The caller must be **`EmissionManager` emission admin** for the reward token (owner can `setEmissionAdmin(rewardToken, deployer)` once).
 
-Weights and yearly budget are in `src/incentives/IncentivesConfig.sol` (e.g. `YEAR1_TOTAL`); emissions are **not** configured per env — change the library and redeploy if you need different rates.
+Yearly budget constants live in [`IncentivesConfig.sol`](src/incentives/IncentivesConfig.sol) (`YEAR1_TOTAL` / `YEAR2_TOTAL` / `YEAR3_TOTAL`). Weights are stored **on-chain**, keyed by asset address, and updated via `setWeights(AssetWeight[])` — no redeploy needed to retune.
 
 ```bash
 export INCENTIVES_REWARD_TOKEN=              # ERC20 (e.g. xK613)
@@ -135,9 +124,51 @@ forge script script/ConfigureSupplyIncentives.s.sol \
 
 Omit `--verify` if you are not verifying on a block explorer.
 
-### Switching networks
+## Admin operations
 
-Payloads and scripts use a `NETWORK` constant (e.g. `TokensConfig.Network.ArbitrumSepolia`). To target another chain, set the protocol addresses in `src/config/networks/` and change `NETWORK` in the relevant script/payload.
+All admin actions below require the caller to already hold the relevant role (`POOL_ADMIN`, `RISK_ADMIN`, or `EMERGENCY_ADMIN`) on the Monad `ACLManager`. Scripts broadcast from `PRIVATE_KEY`.
+
+### Retune a single parameter (caps / reserve factor / liq fee)
+
+One call to `PoolConfigurator`, no payload deploy:
+
+```bash
+# supplyCap | borrowCap in whole units, factors in bps (e.g. 2500 = 25%)
+export ADMIN_OP=supplyCap
+export ADMIN_ASSET=0x...
+export ADMIN_VALUE=300000
+
+forge script script/AdminOps.s.sol \
+  --rpc-url $MONAD_RPC_URL --private-key $PRIVATE_KEY --broadcast -vv
+```
+
+Supported `ADMIN_OP` values: `supplyCap`, `borrowCap`, `reserveFactor`, `liqProtocolFee`.
+
+### Emergency: freeze or pause a reserve
+
+Freeze blocks new supply/borrow/repay but keeps liquidations live. Pause blocks **everything** including liquidations — reserve it for critical incidents.
+
+```bash
+export EMERGENCY_ACTION=freeze     # freeze | unfreeze | pause | unpause
+export EMERGENCY_ASSET=0x...
+
+forge script script/ExecuteEmergencyPayload.s.sol \
+  --rpc-url $MONAD_RPC_URL --private-key $PRIVATE_KEY --broadcast -vv
+```
+
+### Larger changes (multi-param, multi-asset, or new listing)
+
+Write a short payload inheriting [`K613PayloadMonad`](src/payloads/K613PayloadMonad.sol) and override the relevant hooks (`newListings` / `capsUpdates` / `collateralsUpdates` / `rateStrategiesUpdates` / `priceFeedsUpdates` / `borrowsUpdates` / `eModeCategoriesUpdates` / `assetsEModeUpdates`), then deploy and `execute()` it via [`ExecuteListingPayload.s.sol`](script/ExecuteListingPayload.s.sol). The engine is reused forever — no redeploy needed.
+
+[`K613Monad_ConfigureEModes.sol`](src/payloads/K613Monad_ConfigureEModes.sol) is a reference payload that creates two blue-chip eMode categories (ETH-correlated, stablecoins) and assigns the 6 relevant reserves.
+
+### Retuning incentive weights
+
+Weights are stored on-chain in the deployed `IncentivesConfig`. Call `setWeights(AssetWeight[])` as `admin` with an updated array — sum of all `supplyBps + borrowBps` must equal `10_000`. After updating, re-run `ConfigureSupplyIncentives` to push the new per-second rates into `EmissionManager`.
+
+### Targeting another chain
+
+Scripts and payloads read addresses from `MonadMainnet` in `src/config/networks/`. To target another chain, add a new library alongside `MonadMainnet.sol` and update the scripts/payloads to import it.
 
 ## Commands
 
