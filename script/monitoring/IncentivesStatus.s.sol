@@ -4,14 +4,10 @@ pragma solidity ^0.8.30;
 import {Script, console} from "forge-std/Script.sol";
 import {IPool} from "lib/K613-Protocol/src/contracts/interfaces/IPool.sol";
 import {DataTypes} from "lib/K613-Protocol/src/contracts/protocol/libraries/types/DataTypes.sol";
-import {IRewardsDistributor} from
-    "lib/K613-Protocol/src/contracts/rewards/interfaces/IRewardsDistributor.sol";
-import {IRewardsController} from
-    "lib/K613-Protocol/src/contracts/rewards/interfaces/IRewardsController.sol";
-import {IERC20} from
-    "lib/K613-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
-import {IERC20Detailed} from
-    "lib/K613-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20Detailed.sol";
+import {IRewardsDistributor} from "lib/K613-Protocol/src/contracts/rewards/interfaces/IRewardsDistributor.sol";
+import {IRewardsController} from "lib/K613-Protocol/src/contracts/rewards/interfaces/IRewardsController.sol";
+import {IERC20} from "lib/K613-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
+import {IERC20Detailed} from "lib/K613-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20Detailed.sol";
 import {MonadMainnet} from "../../src/networks/MonadMainnet.sol";
 
 /// @title IncentivesStatus
@@ -58,8 +54,7 @@ contract IncentivesStatus is Script {
             string memory symbol = _safeSymbol(reserves[i]);
 
             (, uint256 supplyEps,, uint256 supplyEnd) = dist.getRewardsData(rd.aTokenAddress, rewardToken);
-            (, uint256 borrowEps,, uint256 borrowEnd) =
-                dist.getRewardsData(rd.variableDebtTokenAddress, rewardToken);
+            (, uint256 borrowEps,, uint256 borrowEnd) = dist.getRewardsData(rd.variableDebtTokenAddress, rewardToken);
 
             console.log("---", symbol, reserves[i]);
             console.log("  supply eps / end:", supplyEps, supplyEnd);

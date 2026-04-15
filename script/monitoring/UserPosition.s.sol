@@ -4,8 +4,7 @@ pragma solidity ^0.8.30;
 import {Script, console} from "forge-std/Script.sol";
 import {IPool} from "lib/K613-Protocol/src/contracts/interfaces/IPool.sol";
 import {IPoolDataProvider} from "lib/K613-Protocol/src/contracts/interfaces/IPoolDataProvider.sol";
-import {IERC20Detailed} from
-    "lib/K613-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20Detailed.sol";
+import {IERC20Detailed} from "lib/K613-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20Detailed.sol";
 import {MonadMainnet} from "../../src/networks/MonadMainnet.sol";
 
 /// @title UserPosition
@@ -49,17 +48,8 @@ contract UserPosition is Script {
 
         address[] memory reserves = pool.getReservesList();
         for (uint256 i = 0; i < reserves.length; i++) {
-            (
-                uint256 aBalance,
-                ,
-                uint256 variableDebt,
-                ,
-                ,
-                ,
-                ,
-                ,
-                bool usedAsCollateral
-            ) = dp.getUserReserveData(reserves[i], user);
+            (uint256 aBalance,, uint256 variableDebt,,,,,, bool usedAsCollateral) =
+                dp.getUserReserveData(reserves[i], user);
 
             if (aBalance == 0 && variableDebt == 0) continue;
 

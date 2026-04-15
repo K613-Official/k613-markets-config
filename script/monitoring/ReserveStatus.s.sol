@@ -4,8 +4,7 @@ pragma solidity ^0.8.30;
 import {Script, console} from "forge-std/Script.sol";
 import {IPool} from "lib/K613-Protocol/src/contracts/interfaces/IPool.sol";
 import {IPoolDataProvider} from "lib/K613-Protocol/src/contracts/interfaces/IPoolDataProvider.sol";
-import {IERC20Detailed} from
-    "lib/K613-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20Detailed.sol";
+import {IERC20Detailed} from "lib/K613-Protocol/src/contracts/dependencies/openzeppelin/contracts/IERC20Detailed.sol";
 import {MonadMainnet} from "../../src/networks/MonadMainnet.sol";
 
 /// @title ReserveStatus
@@ -40,8 +39,7 @@ contract ReserveStatus is Script {
             uint256 liqBonus,
             uint256 reserveFactor,
             bool usageAsCollateral,
-            bool borrowingEnabled,
-            ,
+            bool borrowingEnabled,,
             bool isActive,
             bool isFrozen
         ) = dp.getReserveConfigurationData(asset);
@@ -49,19 +47,8 @@ contract ReserveStatus is Script {
         (uint256 borrowCap, uint256 supplyCap) = dp.getReserveCaps(asset);
         bool isPaused = dp.getPaused(asset);
 
-        (
-            ,
-            ,
-            uint256 totalAToken,
-            ,
-            uint256 totalVariableDebt,
-            uint256 liquidityRate,
-            uint256 variableBorrowRate,
-            ,
-            ,
-            ,
-            ,
-        ) = dp.getReserveData(asset);
+        (,, uint256 totalAToken,, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate,,,,,) =
+            dp.getReserveData(asset);
 
         console.log("  decimals:", decimals);
         console.log("  ltv / lt / liqBonus (bps):", ltv, lt, liqBonus);
