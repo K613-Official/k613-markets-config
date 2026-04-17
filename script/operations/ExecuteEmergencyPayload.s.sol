@@ -2,9 +2,17 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {K613Monad_EmergencyFreeze} from "../../src/payloads/emergency/K613Monad_EmergencyFreeze.sol";
-import {K613Monad_EmergencyPause} from "../../src/payloads/emergency/K613Monad_EmergencyPause.sol";
+import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
+import {MonadMainnet} from "../../src/networks/MonadMainnet.sol";
 
+/// @title ExecuteEmergencyPayload
+/// @notice Freeze / unfreeze / pause / unpause a single reserve directly via PoolConfigurator.
+/// @dev Calls PoolConfigurator directly from the broadcaster (deployer/multisig) so that
+///      `msg.sender` holds the required ACL role. Previous version deployed an intermediate
+///      payload contract whose address had no roles — that would always revert.
+///      Env vars:
+///        EMERGENCY_ACTION — freeze | unfreeze | pause | unpause
+///        EMERGENCY_ASSET  — underlying asset address
 contract ExecuteEmergencyPayload is Script {
     error UnknownAction(string action);
 
@@ -12,24 +20,22 @@ contract ExecuteEmergencyPayload is Script {
         string memory action = vm.envString("EMERGENCY_ACTION");
         address asset = vm.envAddress("EMERGENCY_ASSET");
 
+        IPoolConfigurator cfg = IPoolConfigurator(MonadMainnet.POOL_CONFIGURATOR);
+
         vm.startBroadcast();
 
         bytes32 h = keccak256(bytes(action));
         if (h == keccak256("freeze")) {
-            K613Monad_EmergencyFreeze p = new K613Monad_EmergencyFreeze(asset, true);
-            p.execute();
+            cfg.setReserveFreeze(asset, true);
             console.log("Frozen", asset);
         } else if (h == keccak256("unfreeze")) {
-            K613Monad_EmergencyFreeze p = new K613Monad_EmergencyFreeze(asset, false);
-            p.execute();
+            cfg.setReserveFreeze(asset, false);
             console.log("Unfrozen", asset);
         } else if (h == keccak256("pause")) {
-            K613Monad_EmergencyPause p = new K613Monad_EmergencyPause(asset, true);
-            p.execute();
+            cfg.setReservePause(asset, true);
             console.log("Paused", asset);
         } else if (h == keccak256("unpause")) {
-            K613Monad_EmergencyPause p = new K613Monad_EmergencyPause(asset, false);
-            p.execute();
+            cfg.setReservePause(asset, false);
             console.log("Unpaused", asset);
         } else {
             revert UnknownAction(action);

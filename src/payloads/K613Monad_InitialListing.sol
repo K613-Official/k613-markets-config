@@ -33,44 +33,58 @@ contract K613Monad_InitialListing is K613PayloadMonad {
     address internal constant WMON_FEED = 0xBcD78f76005B7515837af6b50c7C52BCf73822fb;
 
     address internal constant SHMON = 0x1B68626dCa36c7fE922fD2d55E4f631d962dE19c;
-    address internal constant SHMON_FEED = 0x4f9ba5CaE0e3F651821283EC4e303fE8D1dA542a;
+    address internal constant SHMON_FEED = 0x7A496d8ba15F82E35F3c633b6292eE75c4F5EDDB;
 
     address internal constant SMON = 0xA3227C5969757783154C60bF0bC1944180ed81B9;
-    address internal constant SMON_FEED = 0x80Efb6394E142F778cdD7F59b6Ee484B5a6299EB;
+    address internal constant SMON_FEED = 0x23164e7B0D502E1EeB67C1b05201315372e7516E;
 
     address internal constant GMON = 0x8498312A6B3CbD158bf0c93AbdCF29E6e4F55081;
-    address internal constant GMON_FEED = 0xE53969561603a9052E3F579b2992C12F3C783496;
+    address internal constant GMON_FEED = 0xdF3B3317974b2BA329377C7242C6A8e99A99E993;
 
     /// @notice Declares the full initial reserve listing batch for Monad mainnet.
     /// @return listings Eleven `Listing` structs with feeds, caps, and risk parameters.
     function newListings() public pure override returns (IAaveV3ConfigEngine.Listing[] memory listings) {
         listings = new IAaveV3ConfigEngine.Listing[](11);
 
-        listings[0] = _stablecoin(USDC, "USDC", USDC_FEED, 200_000, 250_000);
-        listings[1] = _stablecoin(AUSD, "AUSD", AUSD_FEED, 200_000, 250_000);
-        listings[2] = _stablecoin(USDT0, "USDT0", USDT0_FEED, 200_000, 250_000);
-        listings[3] = _stablecoin(WSRUSD, "WSRUSD", WSRUSD_FEED, 120_000, 150_000);
+        listings[0] = _stablecoin(USDC, "USDC", USDC_FEED, 400_000, 500_000);
+        listings[1] = _stablecoin(AUSD, "AUSD", AUSD_FEED, 400_000, 500_000);
+        listings[2] = _stablecoin(USDT0, "USDT0", USDT0_FEED, 400_000, 500_000);
+        listings[3] = _stablecoin(WSRUSD, "WSRUSD", WSRUSD_FEED, 200_000, 250_000);
 
-        listings[4] = _weth(WETH, "WETH", WETH_FEED, 120_000, 150_000);
-        listings[5] = _wstEth(WSTETH, "wstETH", WSTETH_FEED, 150_000, 190_000);
+        listings[4] = _weth(WETH, "WETH", WETH_FEED, 150, 200);
+        listings[5] = _wstEth(WSTETH, "wstETH", WSTETH_FEED, 100, 150);
 
-        listings[6] = _btc(WBTC, "WBTC", WBTC_FEED, 70_000, 90_000);
+        listings[6] = _btc(WBTC, "WBTC", WBTC_FEED, 3, 5);
 
-        listings[7] = _wmon(WMON, "WMON", WMON_FEED, 30_000, 40_000);
+        listings[7] = _wmon(WMON, "WMON", WMON_FEED, 350_000, 500_000);
 
-        listings[8] = _shmon(SHMON, "SHMON", SHMON_FEED, 30_000, 40_000);
-        listings[9] = _smonLike(SMON, "SMON", SMON_FEED, 5_000, 7_000);
-        listings[10] = _smonLike(GMON, "GMON", GMON_FEED, 15_000, 20_000);
+        listings[8] = _shmon(SHMON, "SHMON", SHMON_FEED, 350_000, 500_000);
+        listings[9] = _smonLike(SMON, "SMON", SMON_FEED, 100_000, 200_000);
+        listings[10] = _smonLike(GMON, "GMON", GMON_FEED, 200_000, 300_000);
     }
 
-    /// @dev Default variable-rate curve shared by all initial listings in this payload.
-    function _defaultRate() private pure returns (IAaveV3ConfigEngine.InterestRateInputData memory) {
+    /// @dev Stablecoin rate curve: low base (1%), gentle slope, steep penalty past optimal.
+    function _stableRate() private pure returns (IAaveV3ConfigEngine.InterestRateInputData memory) {
         return IAaveV3ConfigEngine.InterestRateInputData({
-            optimalUsageRatio: 80_00, baseVariableBorrowRate: 10_00, variableRateSlope1: 4_00, variableRateSlope2: 60_00
+            optimalUsageRatio: 90_00, baseVariableBorrowRate: 1_00, variableRateSlope1: 4_00, variableRateSlope2: 75_00
         });
     }
 
-    /// @dev Assembles a `Listing` from risk inputs and shared engine flags for this payload.
+    /// @dev Blue-chip rate curve (WETH, wstETH, WBTC): low base, moderate slopes.
+    function _blueChipRate() private pure returns (IAaveV3ConfigEngine.InterestRateInputData memory) {
+        return IAaveV3ConfigEngine.InterestRateInputData({
+            optimalUsageRatio: 80_00, baseVariableBorrowRate: 1_00, variableRateSlope1: 3_50, variableRateSlope2: 80_00
+        });
+    }
+
+    /// @dev Volatile rate curve (WMON, SHMON, SMON, GMON): higher base, steep slopes.
+    function _volatileRate() private pure returns (IAaveV3ConfigEngine.InterestRateInputData memory) {
+        return IAaveV3ConfigEngine.InterestRateInputData({
+            optimalUsageRatio: 65_00, baseVariableBorrowRate: 5_00, variableRateSlope1: 7_00, variableRateSlope2: 100_00
+        });
+    }
+
+    /// @dev Assembles a `Listing` from risk inputs and a rate strategy for this payload.
     function _build(
         address asset,
         string memory symbol,
@@ -81,13 +95,14 @@ contract K613Monad_InitialListing is K613PayloadMonad {
         uint256 liqThreshold,
         uint256 liqBonus,
         uint256 reserveFactor,
-        uint256 borrowableInIsolation
+        uint256 borrowableInIsolation,
+        IAaveV3ConfigEngine.InterestRateInputData memory rate
     ) private pure returns (IAaveV3ConfigEngine.Listing memory) {
         return IAaveV3ConfigEngine.Listing({
             asset: asset,
             assetSymbol: symbol,
             priceFeed: feed,
-            rateStrategyParams: _defaultRate(),
+            rateStrategyParams: rate,
             enabledToBorrow: EngineFlags.ENABLED,
             borrowableInIsolation: borrowableInIsolation,
             withSiloedBorrowing: EngineFlags.DISABLED,
@@ -109,7 +124,9 @@ contract K613Monad_InitialListing is K613PayloadMonad {
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
-        return _build(asset, symbol, feed, borrowCap, supplyCap, 77_00, 80_00, 5_00, 25_00, EngineFlags.ENABLED);
+        return _build(
+            asset, symbol, feed, borrowCap, supplyCap, 77_00, 80_00, 5_00, 25_00, EngineFlags.ENABLED, _stableRate()
+        );
     }
 
     /// @dev WETH profile: LTV 80%, LT 83%, liquidation bonus 7.5%, reserve factor 25%.
@@ -118,7 +135,9 @@ contract K613Monad_InitialListing is K613PayloadMonad {
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
-        return _build(asset, symbol, feed, borrowCap, supplyCap, 80_00, 83_00, 7_50, 25_00, EngineFlags.DISABLED);
+        return _build(
+            asset, symbol, feed, borrowCap, supplyCap, 80_00, 83_00, 7_50, 25_00, EngineFlags.DISABLED, _blueChipRate()
+        );
     }
 
     /// @dev wstETH profile: LTV 78.5%, LT 81%, liquidation bonus 7.5%, reserve factor 25% (LST basis risk vs WETH).
@@ -127,7 +146,9 @@ contract K613Monad_InitialListing is K613PayloadMonad {
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
-        return _build(asset, symbol, feed, borrowCap, supplyCap, 78_50, 81_00, 7_50, 25_00, EngineFlags.DISABLED);
+        return _build(
+            asset, symbol, feed, borrowCap, supplyCap, 78_50, 81_00, 7_50, 25_00, EngineFlags.DISABLED, _blueChipRate()
+        );
     }
 
     /// @dev WBTC profile: LTV 73%, LT 78%, liquidation bonus 7.5%, reserve factor 25%.
@@ -136,7 +157,9 @@ contract K613Monad_InitialListing is K613PayloadMonad {
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
-        return _build(asset, symbol, feed, borrowCap, supplyCap, 73_00, 78_00, 7_50, 25_00, EngineFlags.DISABLED);
+        return _build(
+            asset, symbol, feed, borrowCap, supplyCap, 73_00, 78_00, 7_50, 25_00, EngineFlags.DISABLED, _blueChipRate()
+        );
     }
 
     /// @dev WMON profile: LTV 50%, LT 60%, liquidation bonus 10%, reserve factor 50% (volatile native base).
@@ -145,7 +168,9 @@ contract K613Monad_InitialListing is K613PayloadMonad {
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
-        return _build(asset, symbol, feed, borrowCap, supplyCap, 50_00, 60_00, 10_00, 50_00, EngineFlags.DISABLED);
+        return _build(
+            asset, symbol, feed, borrowCap, supplyCap, 50_00, 60_00, 10_00, 50_00, EngineFlags.DISABLED, _volatileRate()
+        );
     }
 
     /// @dev SHMON profile: LTV 40%, LT 55%, liquidation bonus 10%, reserve factor 50% (liquid staking on WMON).
@@ -154,7 +179,9 @@ contract K613Monad_InitialListing is K613PayloadMonad {
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
-        return _build(asset, symbol, feed, borrowCap, supplyCap, 40_00, 55_00, 10_00, 50_00, EngineFlags.DISABLED);
+        return _build(
+            asset, symbol, feed, borrowCap, supplyCap, 40_00, 55_00, 10_00, 50_00, EngineFlags.DISABLED, _volatileRate()
+        );
     }
 
     /// @dev SMON/GMON profile: LTV 35%, LT 50%, liquidation bonus 12.5%, reserve factor 50% (thin liquidity).
@@ -163,6 +190,8 @@ contract K613Monad_InitialListing is K613PayloadMonad {
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
-        return _build(asset, symbol, feed, borrowCap, supplyCap, 35_00, 50_00, 12_50, 50_00, EngineFlags.DISABLED);
+        return _build(
+            asset, symbol, feed, borrowCap, supplyCap, 35_00, 50_00, 12_50, 50_00, EngineFlags.DISABLED, _volatileRate()
+        );
     }
 }
