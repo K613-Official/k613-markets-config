@@ -88,20 +88,17 @@ contract IncentivesConfig {
         if (newWeights.length == 0) revert InvalidWeightsLength();
 
         uint256 sum = 0;
-        for (uint256 i = 0; i < newWeights.length; i++) {
+        for (uint256 i = 0; i < newWeights.length; ++i) {
             address a = newWeights[i].asset;
             if (a == address(0)) revert ZeroAsset();
-            for (uint256 j = 0; j < i; j++) {
+            for (uint256 j = 0; j < i; ++j) {
                 if (newWeights[j].asset == a) revert DuplicateAsset(a);
             }
             sum += newWeights[i].supplyBps + newWeights[i].borrowBps;
         }
         if (sum != WEIGHT_BPS) revert InvalidWeightsSum();
 
-        delete weights;
-        for (uint256 i = 0; i < newWeights.length; i++) {
-            weights.push(newWeights[i]);
-        }
+        weights = newWeights;
         emit WeightsUpdated(newWeights);
     }
 
@@ -110,7 +107,7 @@ contract IncentivesConfig {
     function getWeights() external view returns (AssetWeight[] memory out) {
         uint256 n = weights.length;
         out = new AssetWeight[](n);
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; ++i) {
             out[i] = weights[i];
         }
     }
@@ -126,7 +123,7 @@ contract IncentivesConfig {
     function getEmissionConfigs(uint256 yearlyTotal) external view returns (EmissionConfig[] memory configs) {
         uint256 n = weights.length;
         configs = new EmissionConfig[](n);
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; ++i) {
             AssetWeight memory w = weights[i];
             uint256 supplyYearly = (yearlyTotal * w.supplyBps) / WEIGHT_BPS;
             uint256 borrowYearly = (yearlyTotal * w.borrowBps) / WEIGHT_BPS;

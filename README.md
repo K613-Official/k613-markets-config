@@ -1,176 +1,238 @@
-# Markets Config
+# K613 Markets Config — Monad Mainnet
 
-Configuration and deployment scripts for lending markets on top of an **Aave v3–compatible protocol** (e.g. K613-Protocol in `lib/`). This repo does not deploy the core protocol—it configures **which assets are listed**, **oracle price feeds**, **collateral parameters** (LTV, liquidation threshold, bonus), and **risk parameters** (borrow/supply caps, reserve factor) for an already-deployed pool.
+Configuration for the **K613 lending market** — an Aave v3–compatible money market deployed on top of [K613-Protocol](lib/K613-Protocol/). This repo does not deploy the core protocol. It declares **which assets are listed**, **what price feeds are used**, **how collateral and interest behave**, and **how xK613 incentives are distributed** — all as one-shot payloads that `delegatecall` the deployed `AaveV3ConfigEngine`.
 
 <p align="center">
   <img src="image/image.png" alt="Overview" />
 </p>
 
-## What This Repo Does
+For operational runbooks (deploy / freeze / role rotation), see [DEPLOYMENT.md](DEPLOYMENT.md).
 
-- **Network config** — Protocol addresses (Pool, PoolConfigurator, Oracle, Treasury, aToken/VariableDebt implementations, default interest rate strategy, `AaveV3ConfigEngine`) per chain.
-- **Tokens registry** — Off-chain catalog of listed assets and price feeds (used by adapter deploys and external tooling); not a source of truth for payloads.
-- **Payloads** — Stateless, execute-once contracts inheriting `AaveV3Payload`. Each payload declares its intent as `Listing[]` / `CapsUpdate[]` / `CollateralUpdate[]` / etc., and `delegatecall`s the deployed `AaveV3ConfigEngine` to apply it in one transaction (listing, oracles, collateral, caps, IR strategy — all at once).
-- **Scripts** — Forge scripts to deploy and `execute()` payloads.
-- **Incentives** — `IncentivesConfig` stores per-asset `(supplyBps, borrowBps)` weights keyed by underlying asset address; the supply/borrow ratio is set **per asset**, not globally, and the sum across all assets must equal `10_000` bps. `ConfigureSupplyIncentives` registers xK613 emissions on **aToken** and **variableDebtToken** for every configured asset in one transaction.
-- **Admin ops** — [`AdminOps.s.sol`](script/operations/AdminOps.s.sol) for single-call `PoolConfigurator` tweaks (caps, reserve factor, liq protocol fee) without deploying a payload; [`ExecuteEmergencyPayload.s.sol`](script/operations/ExecuteEmergencyPayload.s.sol) for freeze/pause a reserve.
+---
 
-## Supported Networks
+## Supported network
 
-| Network        | Status                             |
-|----------------|------------------------------------|
-| Monad Mainnet  | Primary target (scripts/payloads)  |
+| Network        | Chain ID | Status                     |
+|----------------|----------|----------------------------|
+| Monad Mainnet  | 143    | Primary target             |
 
-## Project Structure
+Canonical protocol addresses (Pool, PoolConfigurator, Oracle, ACLManager, `AaveV3ConfigEngine`, EmissionManager, …) live in [`src/networks/MonadMainnet.sol`](src/networks/MonadMainnet.sol).
+
+---
+
+## Listed reserves (11 assets)
+
+Initial listing is declared in a single payload, [`K613Monad_InitialListing`](src/payloads/K613Monad_InitialListing.sol). Every reserve is borrow-enabled, flashloanable, and uses the same liquidation protocol fee (10%). Debt ceiling is zero (no isolation mode on any listing).
+
+### Stablecoins
+
+| Asset  | LTV   | LT    | LB   | RF    | Borrow cap | Supply cap | Rate curve |
+|--------|-------|-------|------|-------|------------|------------|------------|
+| USDC   | 77%   | 80%   | 5%   | 25%   | 400,000    | 500,000    | Stablecoin |
+| AUSD   | 77%   | 80%   | 5%   | 25%   | 400,000    | 500,000    | Stablecoin |
+| USDT0  | 77%   | 80%   | 5%   | 25%   | 400,000    | 500,000    | Stablecoin |
+| WSRUSD | 77%   | 80%   | 5%   | 25%   | 200,000    | 250,000    | Stablecoin |
+
+All four are `borrowableInIsolation = true`. Caps are in whole units of the underlying.
+
+### Blue-chip collateral
+
+| Asset  | LTV     | LT    | LB    | RF    | Borrow cap | Supply cap | Rate curve  |
+|--------|---------|-------|-------|-------|------------|------------|-------------|
+| WETH   | 80%     | 83%   | 7.5%  | 25%   | 150        | 200        | Blue-chip   |
+| wstETH | 78.5%   | 81%   | 7.5%  | 25%   | 100        | 150        | Blue-chip   |
+| WBTC   | 73%     | 78%   | 7.5%  | 25%   | 3          | 5          | Blue-chip   |
+
+wstETH runs at tighter LTV/LT than WETH to price in LST/ETH basis risk.
+
+### Monad-native & derivatives
+
+| Asset  | LTV   | LT    | LB    | RF    | Borrow cap | Supply cap | Rate curve | Notes                              |
+|--------|-------|-------|-------|-------|------------|------------|------------|------------------------------------|
+| WMON   | 50%   | 60%   | 10%   | 50%   | 350,000    | 500,000    | Volatile   | Wrapped native MON                 |
+| SHMON  | 40%   | 55%   | 10%   | 50%   | 350,000    | 500,000    | Volatile   | Liquid staking on MON              |
+| SMON   | 35%   | 50%   | 12.5% | 50%   | 100,000    | 200,000    | Volatile   | Thin liquidity — conservative LTV  |
+| GMON   | 35%   | 50%   | 12.5% | 50%   | 200,000    | 300,000    | Volatile   | Thin liquidity — conservative LTV  |
+
+MON-derivatives (SHMON / SMON / GMON) have no direct USD Chainlink-style feed. They are priced via [`ExchangeRateAdapter`](src/adapters/ExchangeRateAdapter.sol), which composes `asset/MON × MON/USD` on the fly and returns `min(updatedAt)` of both sources. One adapter per asset; deployed once and referenced by the listing payload.
+
+### Risk-parameter legend
+
+- **LTV** — max loan-to-value at origination (user's borrow cannot push the ratio above this).
+- **LT** — liquidation threshold; positions crossing this are open to liquidation.
+- **LB** — liquidation bonus kept by the liquidator (in addition to principal).
+- **RF** — reserve factor, share of borrow interest routed to the treasury.
+- **Caps** — hard ceilings on total outstanding supply / borrow.
+
+Invariant enforced across every listing: `LTV < LT` and `LT × (1 + LB) ≤ 100%` (no insolvent liquidation path).
+
+### Health factor
+
+`LT` per asset feeds into the portfolio-level **Health Factor (HF)** — the single number that decides whether a position can be liquidated:
+
+```
+HF = Σ (collateral_i × price_i × LT_i)  /  Σ (debt_j × price_j)
+```
+
+- `HF > 1` — position is healthy.
+- `HF = 1` — at the liquidation line.
+- `HF < 1` — any keeper can call `liquidationCall` and seize up to 50% (or 100% in close-factor-max regime) of the debt, paying out collateral plus the per-asset `LB`.
+
+Raising a reserve's **supply cap** or **LTV** increases user borrowing power; raising **LT** lets existing positions sag further before liquidation. Because HF is a weighted average, adding a low-LT collateral to a position drags the whole HF down, not just the new asset's slice. eMode (below) rewrites the `LT_i` used in the numerator to the category's LT for every in-category asset — which is why `EMODE_ETH` / `EMODE_STABLE` at `LT = 95%` lets users lever up much higher than the per-asset `LT = 80 – 83%` would allow.
+
+Live HF for any address is dumped by [`UserPosition.s.sol`](script/monitoring/UserPosition.s.sol).
+
+---
+
+## Interest rate curves
+
+Three `DefaultReserveInterestRateStrategy` profiles, keyed on the asset's volatility and liquidity depth.
+
+| Profile       | Optimal U | Base  | Slope₁ | Slope₂ | Assets                           |
+|---------------|-----------|-------|--------|--------|----------------------------------|
+| Stablecoin    | 90%       | 1%    | 4%     | 75%    | USDC, AUSD, USDT0, WSRUSD        |
+| Blue-chip     | 80%       | 1%    | 3.5%   | 80%    | WETH, wstETH, WBTC               |
+| Volatile      | 65%       | 5%    | 7%     | 100%   | WMON, SHMON, SMON, GMON          |
+
+Below the optimal utilization the borrow APR rises linearly along `slope₁`; past it the second slope takes over to defend available liquidity. Utilization `U = totalBorrow / totalSupply`.
+
+---
+
+## eMode categories
+
+Declared in [`K613Monad_ConfigureEModes`](src/payloads/K613Monad_ConfigureEModes.sol). When a user opts into a category, their positions within the category use the **category's** LTV/LT/LB — which are substantially looser than the per-asset defaults — and become capital-efficient for the target trade (leveraged ETH, stablecoin looping). Positions outside the category are rejected while opted in.
+
+| ID | Category          | LTV   | LT    | LB   | Members                              |
+|----|-------------------|-------|-------|------|--------------------------------------|
+| 1  | ETH correlated    | 93%   | 95%   | 1%   | WETH, wstETH                         |
+| 2  | Stablecoins       | 93%   | 95%   | 1%   | USDC, AUSD, USDT0, WSRUSD            |
+
+Both categories enable the asset as both collateral and borrowable within the category.
+
+---
+
+## xK613 incentives — economics
+
+Supply and borrow emissions are distributed through Aave's `RewardsController` /  `EmissionManager`. Per-second emission rates are derived from on-chain weights stored in [`IncentivesConfig`](src/incentives/IncentivesConfig.sol).
+
+### Yearly budget
+
+| Period  | Total xK613        | Source constant       |
+|---------|--------------------|-----------------------|
+| Year 1  | 25,000,000         | `YEAR1_TOTAL`         |
+| Year 2  | 10,000,000         | `YEAR2_TOTAL`         |
+| Year 3  |  5,000,000         | `YEAR3_TOTAL`         |
+| **Total** | **40,000,000**   |                       |
+
+For each asset and each side (supply / borrow), the per-second rate is
+
+```
+emissionPerSecond = (yearlyTotal × bps) / 10_000 / 365 days
+```
+
+truncated to `uint88` (fits `25M × 1e18 / 365d` with room to spare).
+
+### Supply / borrow split
+
+Global split is **65% supply / 35% borrow** across the 11 assets. Supply side is heavier because passive liquidity is what bootstraps a new market; borrowers are additionally compensated by the organic borrow APR, so they need less direct subsidy.
+
+### Per-asset weights (bps of 10,000)
+
+| Asset  | Supply bps | Borrow bps | Total bps | Share of budget |
+|--------|-----------:|-----------:|----------:|----------------:|
+| USDC   | 1400       | 700        | 2100      | 21.0%           |
+| AUSD   | 1300       | 600        | 1900      | 19.0%           |
+| WETH   | 1000       | 500        | 1500      | 15.0%           |
+| wstETH |  850       | 400        | 1250      | 12.5%           |
+| WBTC   |  650       | 500        | 1150      | 11.5%           |
+| WSRUSD |  500       | 300        |  800      |  8.0%           |
+| USDT0  |  450       | 300        |  750      |  7.5%           |
+| WMON   |  150       |  50        |  200      |  2.0%           |
+| SHMON  |  100       |  50        |  150      |  1.5%           |
+| SMON   |   50       |  50        |  100      |  1.0%           |
+| GMON   |   50       |  50        |  100      |  1.0%           |
+| **Σ**  | **6500**   | **3500**   | **10000** | **100%**        |
+
+Weights are canonical in [`SetIncentivesWeights.s.sol`](script/incentives/SetIncentivesWeights.s.sol) and written atomically via `IncentivesConfig.setWeights`. Retuning = edit the constants, re-run the script, re-run `ConfigureSupplyIncentives` to push the new per-second rates.
+
+### Constraints enforced on-chain
+
+- `Σ (supplyBps + borrowBps) = 10,000`.
+- No duplicate `asset` in a single `setWeights` batch.
+- Only `admin` (initially the deployer, rotate to multisig post-launch) can call `setWeights` or `setAdmin`.
+- Zero `asset` address is rejected.
+
+### Reward oracle (APR display only)
+
+xK613 has no market price at launch. [`StaticRewardPriceFeed`](src/incentives/StaticRewardPriceFeed.sol) is a fixed-price `AggregatorInterface` used by the UI to render an APR estimate. It does **not** affect distribution: rewards are paid in whole xK613 per second regardless of the oracle value. When xK613 lists on a market, swap this for a live feed via `EmissionManager.setRewardOracle`.
+
+---
+
+## Architecture
 
 ```
 src/
-├── config/
-│   └── OraclesConfig.sol         # Helpers for pool-oracle writes from a token list
 ├── networks/
-│   ├── NetworkConfig.sol         # Shared `Addresses` struct + resolvers
-│   └── MonadMainnet.sol          # Canonical deployed addresses, incl. `CONFIG_ENGINE`
-├── incentives/                   # IncentivesConfig (weights, yearly totals); StaticRewardPriceFeed
+│   ├── NetworkConfig.sol              # Shared Addresses struct + resolvers
+│   └── MonadMainnet.sol               # Canonical deployed addresses for chain 10143
 ├── adapters/
-│   └── ExchangeRateAdapter.sol   # token/MON × MON/USD → USD aggregator for the pool oracle
+│   └── ExchangeRateAdapter.sol        # asset/MON × MON/USD → USD aggregator
+├── incentives/
+│   ├── IncentivesConfig.sol           # On-chain (supplyBps, borrowBps) weights, yearly budgets
+│   └── StaticRewardPriceFeed.sol      # Fixed-price aggregator for reward token (APR display)
 └── payloads/
-    ├── K613PayloadMonad.sol             # Abstract base wired to MonadMainnet.CONFIG_ENGINE
-    ├── K613Monad_InitialListing.sol     # One-shot payload listing the 11 Monad reserves
-    ├── K613Monad_ConfigureEModes.sol    # Blue-chip eMode categories (ETH-correlated, stables)
-    └── emergency/
-        ├── K613Monad_EmergencyFreeze.sol  # setReserveFreeze(asset, flag)
-        └── K613Monad_EmergencyPause.sol   # setReservePause(asset, flag)
+    ├── K613PayloadMonad.sol           # Abstract base wired to MonadMainnet.CONFIG_ENGINE
+    ├── K613Monad_InitialListing.sol   # One-shot payload listing the 11 reserves
+    └── K613Monad_ConfigureEModes.sol  # Blue-chip eMode categories
 
 script/
-├── deploy/
-│   └── DeployAdapters.s.sol
-├── operations/
-│   ├── ExecutePayload.s.sol
-│   ├── AdminOps.s.sol
-│   └── ExecuteEmergencyPayload.s.sol
-├── incentives/
-│   └── ConfigureSupplyIncentives.s.sol
-└── admin/
-    └── GrantRoles.s.sol
+├── deploy/            DeployAdapters.s.sol                 # SHMON / SMON / GMON oracle adapters
+├── operations/        ExecutePayload.s.sol                 # Temp-grants POOL_ADMIN, execute()s, revokes
+│                      AdminOps.s.sol                       # One-call PoolConfigurator tweaks
+│                      ExecuteEmergencyPayload.s.sol        # setReserveFreeze / setReservePause
+├── incentives/        SetIncentivesWeights.s.sol           # Writes the 11-asset 65/35 split
+│                      ConfigureSupplyIncentives.s.sol      # Registers aToken + vDebtToken emissions
+├── monitoring/        ReserveStatus / HealthCheck / …      # Read-only dashboards
+└── admin/             GrantRoles.s.sol                     # Multisig role migration (grant / revoke)
 ```
 
-## Prerequisites
+### Payload lifecycle
 
-- [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- Deployed L2-Protocol (Aave fork) with your Pool, PoolConfigurator, Oracle, etc.
-- `.env` with at least:
-  - RPC URL for your chain (e.g. `MONAD_RPC_URL`)
-  - `PRIVATE_KEY` — deployer key (hex, with or without `0x`)
+Each payload is a stateless, execute-once contract inheriting `AaveV3Payload`. Its `execute()` `delegatecall`s the deployed `AaveV3ConfigEngine`, which applies every declared change — listings, oracles, collateral parameters, rate strategies, caps, eMode categories — in one transaction. No config contract needs redeploying between payloads, and the engine instance is reused forever.
 
-Optional: `ETHERSCAN_API_KEY` for contract verification.
+To apply changes, the caller temporarily grants `POOL_ADMIN` on the Monad `ACLManager` to the deployed payload, calls `execute()`, and revokes — all handled by [`ExecutePayload.s.sol`](script/operations/ExecutePayload.s.sol).
 
-## Deployment Order
+---
 
-All configuration goes through one transaction per payload: the payload is deployed, then its `execute()` is called, which `delegatecall`s the already-deployed [`AaveV3ConfigEngine`](src/networks/MonadMainnet.sol) to write oracles, initialize reserves, set LTV/LT/LB/RF, and set caps — in one shot.
+## Deployment
 
-Caller must hold `POOL_ADMIN` / `RISK_ADMIN` on the Monad `ACLManager` (address in [`MonadMainnet.sol`](src/networks/MonadMainnet.sol)).
+Full runbook with simulate / broadcast / verify commands per step: **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 
-**Oracle adapters (SHMON / SMON / GMON)** — MON-derivative assets need a combined `asset/MON × MON/USD → USD` aggregator. Run [`DeployAdapters`](script/deploy/DeployAdapters.s.sol) **once** before authoring any payload that lists those assets, and paste the printed addresses into the `priceFeed` slot of the relevant `Listing` struct (see [`K613Monad_InitialListing.sol`](src/payloads/K613Monad_InitialListing.sol) for the layout).
+High-level order:
 
-### Running a listing payload (Monad)
+1. Deploy `ExchangeRateAdapter` for SHMON / SMON / GMON.
+2. Execute `K613Monad_InitialListing` payload.
+3. Execute `K613Monad_ConfigureEModes` payload.
+4. Deploy `IncentivesConfig`, run `SetIncentivesWeights` (65/35 split).
+5. Run `ConfigureSupplyIncentives` (registers emissions on every aToken + variableDebtToken).
+6. Grant roles to multisigs, revoke deployer.
+7. Rotate `DEFAULT_ADMIN_ROLE` to the main multisig.
 
-Scripts target **Monad Mainnet** by default. Set `MONAD_RPC_URL` in `.env`.
+---
+
+## Tests
 
 ```bash
-source .env   # loads MONAD_RPC_URL, PRIVATE_KEY, etc.
-
-# 0. ExchangeRateAdapter for SHMON, SMON, GMON — only if the payload lists them
-forge script script/deploy/DeployAdapters.s.sol \
-  --rpc-url $MONAD_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast --slow -vv
-
-# 1. Deploy + execute the initial listing payload (oracles, reserves, collateral, caps)
-PAYLOAD=InitialListing forge script script/operations/ExecutePayload.s.sol \
-  --rpc-url $MONAD_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast --slow -vv
-
-# 2. Incentives (optional)
-forge script script/incentives/ConfigureSupplyIncentives.s.sol \
-  --rpc-url $MONAD_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast --slow -vv
+forge test -vvv
 ```
 
-### Adding a new asset
+Coverage includes:
 
-Create a short payload (~30 lines) inheriting [`K613PayloadMonad`](src/payloads/K613PayloadMonad.sol) and overriding `newListings()` with a single `IAaveV3ConfigEngine.Listing` literal — asset, price feed, rate curve, LTV/LT/LB/RF, caps. Register it in [`ExecutePayload`](script/operations/ExecutePayload.s.sol), deploy, `execute()`. No config contract needs redeploying, and the engine instance is reused forever.
+- **Listing invariants** — `LT × (1 + LB) ≤ 100%`, `LTV < LT`, optimal usage bounded, borrow cap ≤ supply cap, uniform liquidation fee, no duplicate eMode categories.
+- **`ExchangeRateAdapter` adversarial** — int256 overflow, `int256.min` guard, extreme decimals (0, 18, 38, 255), mid-flight sign flips.
+- **`IncentivesConfig` adversarial** — admin escalation, duplicate assets, zero-sum rejection, `uint88` emission truncation, atomic replacement.
 
-For maintenance tasks (cap bumps, rate curve tweaks, collateral changes), override `capsUpdates()` / `collateralsUpdates()` / `rateStrategiesUpdates()` / `borrowsUpdates()` / `priceFeedsUpdates()` instead of `newListings()`.
-
-### Supply and borrow incentives (reward token, Monad)
-
-Prerequisites: steps 1–4 completed on **Monad** so every reserve has aToken and variableDebtToken. The **`INCENTIVES_REWARDS_VAULT`** must hold enough reward tokens and **`approve`** the deployed `PullRewardsTransferStrategy` (the script prints its address). The caller must be **`EmissionManager` emission admin** for the reward token (owner can `setEmissionAdmin(rewardToken, deployer)` once).
-
-Yearly budget constants live in [`IncentivesConfig.sol`](src/incentives/IncentivesConfig.sol) (`YEAR1_TOTAL` / `YEAR2_TOTAL` / `YEAR3_TOTAL`). Weights are stored **on-chain**, keyed by asset address, and updated via `setWeights(AssetWeight[])` — no redeploy needed to retune.
-
-```bash
-export INCENTIVES_REWARD_TOKEN=              # ERC20 (e.g. xK613)
-export INCENTIVES_REWARDS_VAULT=             # holds reward tokens; approve strategy after run
-export INCENTIVES_DISTRIBUTION_END=          # unix timestamp (uint32), must be in the future
-# optional:
-# export INCENTIVES_REWARD_ORACLE_ANSWER=    # default 800000 (8 decimals → $0.008)
-# export INCENTIVES_REWARD_ORACLE_DECIMALS=  # default 8
-
-forge script script/incentives/ConfigureSupplyIncentives.s.sol \
-  --rpc-url $MONAD_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast --slow -vv
-```
-
-Omit `--verify` if you are not verifying on a block explorer.
-
-## Admin operations
-
-All admin actions below require the caller to already hold the relevant role (`POOL_ADMIN`, `RISK_ADMIN`, or `EMERGENCY_ADMIN`) on the Monad `ACLManager`. Scripts broadcast from `PRIVATE_KEY`.
-
-### Retune a single parameter (caps / reserve factor / liq fee)
-
-One call to `PoolConfigurator`, no payload deploy:
-
-```bash
-# supplyCap | borrowCap in whole units, factors in bps (e.g. 2500 = 25%)
-export ADMIN_OP=supplyCap
-export ADMIN_ASSET=0x...
-export ADMIN_VALUE=300000
-
-forge script script/operations/AdminOps.s.sol \
-  --rpc-url $MONAD_RPC_URL --private-key $PRIVATE_KEY --broadcast -vv
-```
-
-Supported `ADMIN_OP` values: `supplyCap`, `borrowCap`, `reserveFactor`, `liqProtocolFee`.
-
-### Emergency: freeze or pause a reserve
-
-Freeze blocks new supply/borrow/repay but keeps liquidations live. Pause blocks **everything** including liquidations — reserve it for critical incidents.
-
-```bash
-export EMERGENCY_ACTION=freeze     # freeze | unfreeze | pause | unpause
-export EMERGENCY_ASSET=0x...
-
-forge script script/operations/ExecuteEmergencyPayload.s.sol \
-  --rpc-url $MONAD_RPC_URL --private-key $PRIVATE_KEY --broadcast -vv
-```
-
-### Larger changes (multi-param, multi-asset, or new listing)
-
-Write a short payload inheriting [`K613PayloadMonad`](src/payloads/K613PayloadMonad.sol) and override the relevant hooks (`newListings` / `capsUpdates` / `collateralsUpdates` / `rateStrategiesUpdates` / `priceFeedsUpdates` / `borrowsUpdates` / `eModeCategoriesUpdates` / `assetsEModeUpdates`), then deploy and `execute()` it via [`ExecutePayload.s.sol`](script/operations/ExecutePayload.s.sol). The engine is reused forever — no redeploy needed.
-
-[`K613Monad_ConfigureEModes.sol`](src/payloads/K613Monad_ConfigureEModes.sol) is a reference payload that creates two blue-chip eMode categories (ETH-correlated, stablecoins) and assigns the 6 relevant reserves.
-
-### Retuning incentive weights
-
-Weights are stored on-chain in the deployed `IncentivesConfig`. Call `setWeights(AssetWeight[])` as `admin` with an updated array — sum of all `supplyBps + borrowBps` must equal `10_000`. After updating, re-run `ConfigureSupplyIncentives` to push the new per-second rates into `EmissionManager`.
-
-### Targeting another chain
-
-Scripts and payloads read addresses from `MonadMainnet` in `src/networks/`. To target another chain, add a new library alongside `MonadMainnet.sol` and update the scripts/payloads to import it.
+---
 
 ## Commands
 

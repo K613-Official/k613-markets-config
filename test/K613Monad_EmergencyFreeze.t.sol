@@ -2,23 +2,17 @@
 pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
-import {K613Monad_EmergencyFreeze} from "../src/payloads/emergency/K613Monad_EmergencyFreeze.sol";
 import {IPoolConfigurator} from "lib/K613-Protocol/src/contracts/interfaces/IPoolConfigurator.sol";
 import {MonadMainnet} from "../src/networks/MonadMainnet.sol";
 
 /// @title K613Monad_EmergencyFreezeTest
-/// @notice Tests freeze payload storage and the calldata sent to `PoolConfigurator`.
+/// @notice Verifies direct `PoolConfigurator.setReserveFreeze` calls as the broadcaster would.
+///         The script no longer deploys an intermediate payload contract — it calls the
+///         configurator directly so `msg.sender` holds the ACL role.
 contract K613Monad_EmergencyFreezeTest is Test {
     address internal constant ASSET = address(0xBEEF);
 
-    function test_StoresConstructorArgs() public {
-        K613Monad_EmergencyFreeze p = new K613Monad_EmergencyFreeze(ASSET, true);
-        assertEq(p.asset(), ASSET);
-        assertTrue(p.freeze());
-    }
-
-    function test_ExecuteCallsSetReserveFreeze_true() public {
-        K613Monad_EmergencyFreeze p = new K613Monad_EmergencyFreeze(ASSET, true);
+    function test_FreezeCallsConfiguratorDirectly() public {
         vm.mockCall(
             MonadMainnet.POOL_CONFIGURATOR,
             abi.encodeWithSelector(IPoolConfigurator.setReserveFreeze.selector, ASSET, true),
@@ -28,11 +22,10 @@ contract K613Monad_EmergencyFreezeTest is Test {
             MonadMainnet.POOL_CONFIGURATOR,
             abi.encodeWithSelector(IPoolConfigurator.setReserveFreeze.selector, ASSET, true)
         );
-        p.execute();
+        IPoolConfigurator(MonadMainnet.POOL_CONFIGURATOR).setReserveFreeze(ASSET, true);
     }
 
-    function test_ExecuteCallsSetReserveFreeze_false() public {
-        K613Monad_EmergencyFreeze p = new K613Monad_EmergencyFreeze(ASSET, false);
+    function test_UnfreezeCallsConfiguratorDirectly() public {
         vm.mockCall(
             MonadMainnet.POOL_CONFIGURATOR,
             abi.encodeWithSelector(IPoolConfigurator.setReserveFreeze.selector, ASSET, false),
@@ -42,6 +35,6 @@ contract K613Monad_EmergencyFreezeTest is Test {
             MonadMainnet.POOL_CONFIGURATOR,
             abi.encodeWithSelector(IPoolConfigurator.setReserveFreeze.selector, ASSET, false)
         );
-        p.execute();
+        IPoolConfigurator(MonadMainnet.POOL_CONFIGURATOR).setReserveFreeze(ASSET, false);
     }
 }
