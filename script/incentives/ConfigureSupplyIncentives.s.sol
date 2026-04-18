@@ -34,6 +34,7 @@ contract ConfigureSupplyIncentives is Script {
     error NotEmissionAdmin();
     error ReserveNotListed(string symbol);
     error ZeroIncentivesConfig();
+    error ZeroWeights();
 
     function run() external {
         address deployer;
@@ -92,6 +93,7 @@ contract ConfigureSupplyIncentives is Script {
             new PullRewardsTransferStrategy(addrs.incentivesController, deployer, rewardsVault);
 
         IncentivesConfig incentivesConfig = IncentivesConfig(incentivesConfigAddr);
+        if (incentivesConfig.weightCount() == 0) revert ZeroWeights();
         IncentivesConfig.EmissionConfig[] memory emissions =
             incentivesConfig.getEmissionConfigs(incentivesConfig.YEAR1_TOTAL());
 

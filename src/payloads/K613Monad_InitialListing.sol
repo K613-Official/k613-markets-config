@@ -46,21 +46,21 @@ contract K613Monad_InitialListing is K613PayloadMonad {
     function newListings() public pure override returns (IAaveV3ConfigEngine.Listing[] memory listings) {
         listings = new IAaveV3ConfigEngine.Listing[](11);
 
-        listings[0] = _stablecoin(USDC, "USDC", USDC_FEED, 400_000, 500_000);
-        listings[1] = _stablecoin(AUSD, "AUSD", AUSD_FEED, 400_000, 500_000);
-        listings[2] = _stablecoin(USDT0, "USDT0", USDT0_FEED, 400_000, 500_000);
-        listings[3] = _stablecoin(WSRUSD, "WSRUSD", WSRUSD_FEED, 200_000, 250_000);
+        listings[0] = _stablecoin(USDC, "USDC", USDC_FEED, 200_000, 250_000);
+        listings[1] = _stablecoin(AUSD, "AUSD", AUSD_FEED, 150_000, 200_000);
+        listings[2] = _stablecoin(USDT0, "USDT0", USDT0_FEED, 80_000, 100_000);
+        listings[3] = _stablecoin(WSRUSD, "WSRUSD", WSRUSD_FEED, 50_000, 65_000);
 
-        listings[4] = _weth(WETH, "WETH", WETH_FEED, 150, 200);
-        listings[5] = _wstEth(WSTETH, "wstETH", WSTETH_FEED, 100, 150);
+        listings[4] = _weth(WETH, "WETH", WETH_FEED, 40, 55);
+        listings[5] = _wstEth(WSTETH, "wstETH", WSTETH_FEED, 40, 55);
 
-        listings[6] = _btc(WBTC, "WBTC", WBTC_FEED, 3, 5);
+        listings[6] = _btc(WBTC, "WBTC", WBTC_FEED, 1, 2);
 
-        listings[7] = _wmon(WMON, "WMON", WMON_FEED, 350_000, 500_000);
+        listings[7] = _wmon(WMON, "WMON", WMON_FEED, 1_200_000, 1_500_000);
 
-        listings[8] = _shmon(SHMON, "SHMON", SHMON_FEED, 350_000, 500_000);
-        listings[9] = _smonLike(SMON, "SMON", SMON_FEED, 100_000, 200_000);
-        listings[10] = _smonLike(GMON, "GMON", GMON_FEED, 200_000, 300_000);
+        listings[8] = _monLst(SHMON, "SHMON", SHMON_FEED, 600_000, 800_000);
+        listings[9] = _monLst(SMON, "SMON", SMON_FEED, 200_000, 300_000);
+        listings[10] = _monLst(GMON, "GMON", GMON_FEED, 200_000, 300_000);
     }
 
     /// @dev Stablecoin rate curve: low base (1%), gentle slope, steep penalty past optimal.
@@ -129,69 +129,58 @@ contract K613Monad_InitialListing is K613PayloadMonad {
         );
     }
 
-    /// @dev WETH profile: LTV 80%, LT 83%, liquidation bonus 7.5%, reserve factor 25%.
+    /// @dev WETH profile: LTV 75%, LT 79%, liquidation bonus 6%, reserve factor 25%.
     function _weth(address asset, string memory symbol, address feed, uint256 borrowCap, uint256 supplyCap)
         private
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
         return _build(
-            asset, symbol, feed, borrowCap, supplyCap, 80_00, 83_00, 7_50, 25_00, EngineFlags.DISABLED, _blueChipRate()
+            asset, symbol, feed, borrowCap, supplyCap, 75_00, 79_00, 6_00, 25_00, EngineFlags.DISABLED, _blueChipRate()
         );
     }
 
-    /// @dev wstETH profile: LTV 78.5%, LT 81%, liquidation bonus 7.5%, reserve factor 25% (LST basis risk vs WETH).
+    /// @dev wstETH profile: LTV 73%, LT 78%, liquidation bonus 6%, reserve factor 25% (LST basis risk vs WETH).
     function _wstEth(address asset, string memory symbol, address feed, uint256 borrowCap, uint256 supplyCap)
         private
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
         return _build(
-            asset, symbol, feed, borrowCap, supplyCap, 78_50, 81_00, 7_50, 25_00, EngineFlags.DISABLED, _blueChipRate()
+            asset, symbol, feed, borrowCap, supplyCap, 73_00, 78_00, 6_00, 25_00, EngineFlags.DISABLED, _blueChipRate()
         );
     }
 
-    /// @dev WBTC profile: LTV 73%, LT 78%, liquidation bonus 7.5%, reserve factor 25%.
+    /// @dev WBTC profile: LTV 68%, LT 74%, liquidation bonus 7%, reserve factor 25%.
     function _btc(address asset, string memory symbol, address feed, uint256 borrowCap, uint256 supplyCap)
         private
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
         return _build(
-            asset, symbol, feed, borrowCap, supplyCap, 73_00, 78_00, 7_50, 25_00, EngineFlags.DISABLED, _blueChipRate()
+            asset, symbol, feed, borrowCap, supplyCap, 68_00, 74_00, 7_00, 25_00, EngineFlags.DISABLED, _blueChipRate()
         );
     }
 
-    /// @dev WMON profile: LTV 50%, LT 60%, liquidation bonus 10%, reserve factor 50% (volatile native base).
+    /// @dev WMON profile: LTV 60%, LT 68%, liquidation bonus 5%, reserve factor 50% (volatile native base).
     function _wmon(address asset, string memory symbol, address feed, uint256 borrowCap, uint256 supplyCap)
         private
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
         return _build(
-            asset, symbol, feed, borrowCap, supplyCap, 50_00, 60_00, 10_00, 50_00, EngineFlags.DISABLED, _volatileRate()
+            asset, symbol, feed, borrowCap, supplyCap, 60_00, 68_00, 5_00, 50_00, EngineFlags.DISABLED, _volatileRate()
         );
     }
 
-    /// @dev SHMON profile: LTV 40%, LT 55%, liquidation bonus 10%, reserve factor 50% (liquid staking on WMON).
-    function _shmon(address asset, string memory symbol, address feed, uint256 borrowCap, uint256 supplyCap)
+    /// @dev MON-LST profile (SHMON / SMON / GMON): LTV 55%, LT 60%, liquidation bonus 5%, reserve factor 50%.
+    function _monLst(address asset, string memory symbol, address feed, uint256 borrowCap, uint256 supplyCap)
         private
         pure
         returns (IAaveV3ConfigEngine.Listing memory)
     {
         return _build(
-            asset, symbol, feed, borrowCap, supplyCap, 40_00, 55_00, 10_00, 50_00, EngineFlags.DISABLED, _volatileRate()
-        );
-    }
-
-    /// @dev SMON/GMON profile: LTV 35%, LT 50%, liquidation bonus 12.5%, reserve factor 50% (thin liquidity).
-    function _smonLike(address asset, string memory symbol, address feed, uint256 borrowCap, uint256 supplyCap)
-        private
-        pure
-        returns (IAaveV3ConfigEngine.Listing memory)
-    {
-        return _build(
-            asset, symbol, feed, borrowCap, supplyCap, 35_00, 50_00, 12_50, 50_00, EngineFlags.DISABLED, _volatileRate()
+            asset, symbol, feed, borrowCap, supplyCap, 55_00, 60_00, 5_00, 50_00, EngineFlags.DISABLED, _volatileRate()
         );
     }
 }

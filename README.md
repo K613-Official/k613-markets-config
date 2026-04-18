@@ -28,33 +28,33 @@ Initial listing is declared in a single payload, [`K613Monad_InitialListing`](sr
 
 | Asset  | LTV   | LT    | LB   | RF    | Borrow cap | Supply cap | Rate curve |
 |--------|-------|-------|------|-------|------------|------------|------------|
-| USDC   | 77%   | 80%   | 5%   | 25%   | 400,000    | 500,000    | Stablecoin |
-| AUSD   | 77%   | 80%   | 5%   | 25%   | 400,000    | 500,000    | Stablecoin |
-| USDT0  | 77%   | 80%   | 5%   | 25%   | 400,000    | 500,000    | Stablecoin |
-| WSRUSD | 77%   | 80%   | 5%   | 25%   | 200,000    | 250,000    | Stablecoin |
+| USDC   | 77%   | 80%   | 5%   | 25%   | 200,000    | 250,000    | Stablecoin |
+| AUSD   | 77%   | 80%   | 5%   | 25%   | 150,000    | 200,000    | Stablecoin |
+| USDT0  | 77%   | 80%   | 5%   | 25%   |  80,000    | 100,000    | Stablecoin |
+| WSRUSD | 77%   | 80%   | 5%   | 25%   |  50,000    |  65,000    | Stablecoin |
 
 All four are `borrowableInIsolation = true`. Caps are in whole units of the underlying.
 
 ### Blue-chip collateral
 
-| Asset  | LTV     | LT    | LB    | RF    | Borrow cap | Supply cap | Rate curve  |
-|--------|---------|-------|-------|-------|------------|------------|-------------|
-| WETH   | 80%     | 83%   | 7.5%  | 25%   | 150        | 200        | Blue-chip   |
-| wstETH | 78.5%   | 81%   | 7.5%  | 25%   | 100        | 150        | Blue-chip   |
-| WBTC   | 73%     | 78%   | 7.5%  | 25%   | 3          | 5          | Blue-chip   |
+| Asset  | LTV   | LT    | LB    | RF    | Borrow cap | Supply cap | Rate curve  |
+|--------|-------|-------|-------|-------|------------|------------|-------------|
+| WETH   | 75%   | 79%   | 6%    | 25%   | 40         | 55         | Blue-chip   |
+| wstETH | 73%   | 78%   | 6%    | 25%   | 40         | 55         | Blue-chip   |
+| WBTC   | 68%   | 74%   | 7%    | 25%   | 1          | 2          | Blue-chip   |
 
-wstETH runs at tighter LTV/LT than WETH to price in LST/ETH basis risk.
+wstETH runs at tighter LTV/LT than WETH to price in LST/ETH basis risk. WBTC borrow cap (1) is strictly below supply cap (2) to guarantee headroom under full utilization.
 
 ### Monad-native & derivatives
 
-| Asset  | LTV   | LT    | LB    | RF    | Borrow cap | Supply cap | Rate curve | Notes                              |
-|--------|-------|-------|-------|-------|------------|------------|------------|------------------------------------|
-| WMON   | 50%   | 60%   | 10%   | 50%   | 350,000    | 500,000    | Volatile   | Wrapped native MON                 |
-| SHMON  | 40%   | 55%   | 10%   | 50%   | 350,000    | 500,000    | Volatile   | Liquid staking on MON              |
-| SMON   | 35%   | 50%   | 12.5% | 50%   | 100,000    | 200,000    | Volatile   | Thin liquidity — conservative LTV  |
-| GMON   | 35%   | 50%   | 12.5% | 50%   | 200,000    | 300,000    | Volatile   | Thin liquidity — conservative LTV  |
+| Asset  | LTV   | LT    | LB   | RF    | Borrow cap | Supply cap | Rate curve | Notes                        |
+|--------|-------|-------|------|-------|------------|------------|------------|------------------------------|
+| WMON   | 60%   | 68%   | 5%   | 50%   | 1,200,000  | 1,500,000  | Volatile   | Wrapped native MON           |
+| SHMON  | 55%   | 60%   | 5%   | 50%   |   600,000  |   800,000  | Volatile   | Liquid staking on MON        |
+| SMON   | 55%   | 60%   | 5%   | 50%   |   200,000  |   300,000  | Volatile   | Liquid staking on MON        |
+| GMON   | 55%   | 60%   | 5%   | 50%   |   200,000  |   300,000  | Volatile   | Liquid staking on MON        |
 
-MON-derivatives (SHMON / SMON / GMON) have no direct USD Chainlink-style feed. They are priced via [`ExchangeRateAdapter`](src/adapters/ExchangeRateAdapter.sol), which composes `asset/MON × MON/USD` on the fly and returns `min(updatedAt)` of both sources. One adapter per asset; deployed once and referenced by the listing payload.
+SHMON / SMON / GMON share identical risk parameters and are built via the same `_monLst` helper in the payload. MON-derivatives have no direct USD Chainlink-style feed — they are priced via [`ExchangeRateAdapter`](src/adapters/ExchangeRateAdapter.sol), which composes `asset/MON × MON/USD` on the fly and returns `min(updatedAt)` of both sources. One adapter per asset; deployed once and referenced by the listing payload.
 
 ### Risk-parameter legend
 
@@ -78,7 +78,7 @@ HF = Σ (collateral_i × price_i × LT_i)  /  Σ (debt_j × price_j)
 - `HF = 1` — at the liquidation line.
 - `HF < 1` — any keeper can call `liquidationCall` and seize up to 50% (or 100% in close-factor-max regime) of the debt, paying out collateral plus the per-asset `LB`.
 
-Raising a reserve's **supply cap** or **LTV** increases user borrowing power; raising **LT** lets existing positions sag further before liquidation. Because HF is a weighted average, adding a low-LT collateral to a position drags the whole HF down, not just the new asset's slice. eMode (below) rewrites the `LT_i` used in the numerator to the category's LT for every in-category asset — which is why `EMODE_ETH` / `EMODE_STABLE` at `LT = 95%` lets users lever up much higher than the per-asset `LT = 80 – 83%` would allow.
+Raising a reserve's **supply cap** or **LTV** increases user borrowing power; raising **LT** lets existing positions sag further before liquidation. Because HF is a weighted average, adding a low-LT collateral to a position drags the whole HF down, not just the new asset's slice. eMode (below) rewrites the `LT_i` used in the numerator to the category's LT for every in-category asset — which is why `EMODE_ETH` / `EMODE_STABLE` at `LT = 95%` lets users lever up much higher than the per-asset `LT = 78 – 80%` would allow.
 
 Live HF for any address is dumped by [`UserPosition.s.sol`](script/monitoring/UserPosition.s.sol).
 
