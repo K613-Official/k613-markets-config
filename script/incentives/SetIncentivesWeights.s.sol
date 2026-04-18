@@ -21,11 +21,10 @@ contract SetIncentivesWeights is Script {
     address internal constant SMON = 0xA3227C5969757783154C60bF0bC1944180ed81B9;
     address internal constant GMON = 0x8498312A6B3CbD158bf0c93AbdCF29E6e4F55081;
 
-    function run() external {
-        address cfgAddr = vm.envAddress("INCENTIVES_CONFIG");
-        IncentivesConfig cfg = IncentivesConfig(cfgAddr);
-
-        IncentivesConfig.AssetWeight[] memory weights = new IncentivesConfig.AssetWeight[](11);
+    /// @notice Canonical 11-asset 65/35 (supply/borrow) weight vector in bps.
+    /// @dev Pure getter so tests can assert the snapshot without broadcasting.
+    function canonicalWeights() public pure returns (IncentivesConfig.AssetWeight[] memory weights) {
+        weights = new IncentivesConfig.AssetWeight[](11);
 
         //                                                   supplyBps  borrowBps   total
         weights[0] = IncentivesConfig.AssetWeight(USDC, 1400, 700); // 21%
@@ -40,6 +39,13 @@ contract SetIncentivesWeights is Script {
         weights[9] = IncentivesConfig.AssetWeight(SMON, 50, 50); // 1%
         weights[10] = IncentivesConfig.AssetWeight(GMON, 50, 50); // 1%
         // Total supply: 6500 (65%), borrow: 3500 (35%), sum: 10000 = WEIGHT_BPS
+    }
+
+    function run() external {
+        address cfgAddr = vm.envAddress("INCENTIVES_CONFIG");
+        IncentivesConfig cfg = IncentivesConfig(cfgAddr);
+
+        IncentivesConfig.AssetWeight[] memory weights = canonicalWeights();
 
         console.log("IncentivesConfig:", cfgAddr);
         console.log("Current admin:", cfg.admin());
