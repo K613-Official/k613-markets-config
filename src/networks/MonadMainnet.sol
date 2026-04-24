@@ -13,8 +13,8 @@ library MonadMainnet {
     address internal constant ORACLE = 0x0dFfb00A751a74ac8CF8B022Bf86b1ECd9D7ae6F;
     address internal constant ATOKEN_IMPL = 0xDe57e04622877525482BefC9301728e0ED57f677;
     address internal constant VARIABLE_DEBT_IMPL = 0xF8C5a1F25a6e1910E443edC2fC71b7B6cC4248Fb;
-    address internal constant TREASURY = 0x628CddC70789c4Ea843dc9dc2f84C16e2580D2e6;
-    address internal constant INCENTIVES_CONTROLLER = 0x4daF0EfC0E149B13b6c115916d643524E279DDEa;
+    address internal constant TREASURY = 0xF689bB846eE7DD51947c3368cc3ee26713D3ED83;
+    address internal constant INCENTIVES_CONTROLLER = 0xe1d8B642c83587Df813a36F361C682C0475c4ea4;
     address internal constant DEFAULT_INTEREST_RATE_STRATEGY = 0xDA36b4904Ed53f19a7E1995c718f7149580D0f65;
     address internal constant CONFIG_ENGINE = 0x53De8e2AFe1C424158ebb3AE44dbCf0734EE3816;
     address internal constant ACL_MANAGER = 0x115840CF79eb27713E0Bd3B66076651f8C081B0B;
