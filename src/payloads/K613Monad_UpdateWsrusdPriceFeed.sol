@@ -6,7 +6,7 @@ import {IAaveV3ConfigEngine} from "lib/K613-Protocol/src/contracts/extensions/v3
 
 contract K613Monad_UpdateWsrusdPriceFeed is K613PayloadMonad {
     address internal constant WSRUSD = 0x4809010926aec940b550D34a46A52739f996D75D;
-    address internal constant NEW_WSRUSD_PRICE_FEED = 0x1111111111111111111111111111111111111111;
+    address internal constant NEW_WSRUSD_PRICE_FEED = 0xceD82ddEac78A77500F2969B6e902bdB869a6641;
 
     function priceFeedsUpdates() public view override returns (IAaveV3ConfigEngine.PriceFeedUpdate[] memory updates) {
         updates = new IAaveV3ConfigEngine.PriceFeedUpdate[](1);
