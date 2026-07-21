@@ -24,7 +24,13 @@ interface IOwnable {
 }
 
 contract ConfigureSupplyIncentives is Script {
-    error DistributionEndOverflow();
+    /// @notice xK613 / USD price used by the static reward oracle: 0.01 USD with 8 decimals,
+    ///         matching the public sale implied price (hardCap $100k / saleAllocation 10M K613).
+    int256 internal constant REWARD_ORACLE_ANSWER = 1_000_000;
+    uint8 internal constant REWARD_ORACLE_DECIMALS = 8;
+    /// @notice End of the year-1 emission schedule: TGE + 365 days (2027-07-20 00:00 UTC).
+    uint32 internal constant DISTRIBUTION_END = 1_816_041_600;
+
     error DistributionEndInPast();
     error InvalidOracleAnswer();
     error ZeroIncentivesController();
@@ -53,18 +59,16 @@ contract ConfigureSupplyIncentives is Script {
         if (pkResolved) vm.startBroadcast(pk);
         else vm.startBroadcast();
 
-        address rewardToken = vm.envAddress("INCENTIVES_REWARD_TOKEN");
-        address rewardsVault = vm.envAddress("INCENTIVES_REWARDS_VAULT");
+        address rewardToken = MonadMainnet.XK613;
+        address rewardsVault = MonadMainnet.REWARDS_VAULT;
         address incentivesConfigAddr = vm.envAddress("INCENTIVES_CONFIG");
         if (incentivesConfigAddr == address(0)) revert ZeroIncentivesConfig();
-        uint256 distributionEndU = vm.envUint("INCENTIVES_DISTRIBUTION_END");
-        if (distributionEndU > uint256(type(uint32).max)) revert DistributionEndOverflow();
-        uint32 distributionEnd = uint32(distributionEndU);
+        uint32 distributionEnd = DISTRIBUTION_END;
         if (distributionEnd <= block.timestamp) revert DistributionEndInPast();
 
-        int256 oracleAnswer = vm.envOr("INCENTIVES_REWARD_ORACLE_ANSWER", int256(800_000));
+        int256 oracleAnswer = REWARD_ORACLE_ANSWER;
         if (oracleAnswer <= 0) revert InvalidOracleAnswer();
-        uint8 oracleDecimals = uint8(vm.envOr("INCENTIVES_REWARD_ORACLE_DECIMALS", uint256(8)));
+        uint8 oracleDecimals = REWARD_ORACLE_DECIMALS;
 
         NetworkConfig.Addresses memory addrs = MonadMainnet.getAddresses();
         if (addrs.incentivesController == address(0)) revert ZeroIncentivesController();

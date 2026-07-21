@@ -20,6 +20,10 @@ library MonadMainnet {
     address internal constant ACL_MANAGER = 0x115840CF79eb27713E0Bd3B66076651f8C081B0B;
     address internal constant EMISSION_MANAGER = 0x7eEdb2D4D4b89b8B854c734e8fAABfB24E0537A6;
     address internal constant AAVE_PROTOCOL_DATA_PROVIDER = 0xfc87bE7f3657AAD69baDb6247A88E924D1F8bc53;
+    address internal constant K613 = 0xb09582631336068d4B0089d943f40CbF46dE5189;
+    address internal constant XK613 = 0x9064d55A8A8473fA39c41A16492Fa1094Eb4E8b5;
+    /// @notice K613 Treasury contract that funds xK613 incentive emissions.
+    address internal constant REWARDS_VAULT = 0x3377BAB9A510A586627D2f9013e132d269Eb9871;
 
     /// @notice Returns the full address bundle for this network.
     /// @return Structured addresses for scripts and payloads.

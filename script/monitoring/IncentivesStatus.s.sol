@@ -12,13 +12,10 @@ import {MonadMainnet} from "../../src/networks/MonadMainnet.sol";
 
 /// @title IncentivesStatus
 /// @notice Read-only snapshot of xK613 emissions per reserve, plus vault + allowance sanity checks.
-/// @dev Env vars:
-///        INCENTIVES_REWARD_TOKEN  — reward token address (xK613)
-///        INCENTIVES_REWARDS_VAULT — vault address holding the reward tokens
 contract IncentivesStatus is Script {
     function run() external view {
-        address rewardToken = vm.envAddress("INCENTIVES_REWARD_TOKEN");
-        address rewardsVault = vm.envAddress("INCENTIVES_REWARDS_VAULT");
+        address rewardToken = MonadMainnet.XK613;
+        address rewardsVault = MonadMainnet.REWARDS_VAULT;
 
         IPool pool = IPool(MonadMainnet.POOL);
         IRewardsDistributor dist = IRewardsDistributor(MonadMainnet.INCENTIVES_CONTROLLER);
